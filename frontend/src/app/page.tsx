@@ -4,6 +4,7 @@ import axios from 'axios';
 import ListingCard from '@/components/ListingCard';
 import dynamic from 'next/dynamic';
 import FilterBar from '@/components/FilterBar';
+import Navbar from '@/components/Navbar';
 
 // Import dinamic pentru hartă pentru a evita erorile de SSR (Server Side Rendering)
 const MapView = dynamic(() => import('@/components/Map'), {
@@ -89,6 +90,9 @@ export default function Home() {
   return (
     // Container principal: Flex pe coloană pentru a pune FilterBar sus
     <main className="flex flex-col h-screen w-full overflow-hidden bg-white">
+
+      {/* Navbar deasupra tuturor */}
+      <Navbar />
 
       {/* 1. Bara de Filtre (Sus) */}
       <FilterBar filters={filters} setFilters={setFilters} />
