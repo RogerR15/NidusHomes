@@ -22,6 +22,78 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 }
 
+TARGETS = [
+    {
+        "platform": "OLX",
+        "type": "SALE",
+        "url": "https://www.olx.ro/imobiliare/apartamente-garsoniere-de-vanzare/iasi_39939/"
+    },
+    {
+        "platform": "OLX",
+        "type": "RENT",
+        "url": "https://www.olx.ro/imobiliare/apartamente-garsoniere-de-inchiriat/iasi_39939/"
+    },
+    {
+        "platform": "Storia",
+        "type": "SALE",
+        "url": "https://www.storia.ro/ro/rezultate/vanzare/apartament/iasi/iasi"
+    },
+    {
+        "platform": "Storia",
+        "type": "RENT",
+        "url": "https://www.storia.ro/ro/rezultate/inchiriere/apartament/iasi/iasi"
+    }
+]
+
+IASI_ZONES = {
+    "palas": "Palas, Iasi",
+    "iulius": "Iulius Mall, Iasi",
+    "copou": "Copou, Iasi",
+    "tatarasi": "Tatarasi, Iasi",
+    "alexandru": "Alexandru cel Bun, Iasi",
+    "dacia": "Dacia, Iasi",
+    "pacurari": "Pacurari, Iasi",
+    "canta": "Canta, Iasi",
+    "nicolina": "Nicolina, Iasi",
+    "cug": "CUG, Iasi",
+    "galata": "Galata, Iasi",
+    "bucium": "Bucium, Iasi",
+    "socola": "Socola, Iasi",
+    "bularga": "Bularga, Iasi",
+    "zona industriala": "Zona Industriala, Iasi",
+    "metalurgie": "Bulevardul Chimiei, Iasi",
+    "podu ros": "Podu Ros, Iasi",
+    "podu de fier": "Podu de Fier, Iasi",
+    "tudor": "Tudor Vladimirescu, Iasi",
+    "vladimirescu": "Tudor Vladimirescu, Iasi",
+    "independent": "Bulevardul Independentei, Iasi",
+    "unirii": "Piata Unirii, Iasi",
+    "centru": "Centru, Iasi",
+    "gara": "Gara Iasi, Iasi",
+    "mircea": "Mircea cel Batran, Iasi",
+    "moara de vant": "Moara de Vant, Iasi",
+    "sorogari": "Sorogari, Iasi",
+    "rediu": "Rediu, Iasi",
+    "miroslava": "Miroslava, Iasi",
+    "ciurea": "Ciurea, Iasi",
+    "lunca cetatuii": "Lunca Cetatuii, Iasi",
+    "valea lupului": "Valea Lupului, Iasi",
+    "tomesti": "Tomesti, Iasi",
+    "breazu": "Breazu, Iasi",
+}
+
+def extract_zone_from_text(text):
+    """Cauta un cartier in text (titlu) si returneaza query-ul pentru harta."""
+    if not text: return None
+    text_lower = text.lower()
+    
+    # Cautam fiecare zona in text
+    for key, search_query in IASI_ZONES.items():
+        if key in text_lower:
+            return search_query
+    
+    return None
+
 # Returnam sesiunea direct
 def get_db_session():
     return SessionLocal()
@@ -29,9 +101,10 @@ def get_db_session():
 #
 # STORIA SCRAPER (JSON API)
 #
-def scrape_storia():
-    print("\nIncepem colectarea STORIA...")
-    url = "https://www.storia.ro/ro/rezultate/vanzare/apartament/iasi/iasi"
+def scrape_storia(target):
+    url = target["url"]
+    trans_type = target["type"]
+    print(f"\nIncepem colectarea STORIA pentru: {trans_type}...")
     
     try:
         response = requests.get(url, headers=HEADERS)
@@ -44,11 +117,14 @@ def scrape_storia():
 
         data = json.loads(script_tag.string)
         
+        items = []
         try:
             items = data['props']['pageProps']['data']['searchAds']['items']
         except KeyError:
             print("Structura JSON Storia s-a schimbat sau nu sunt anunturi.")
             return
+
+        print(f"Storia: Gasite {len(items)} anunturi.")
 
         # Incepem procesarea anunturilor
         db = get_db_session()
@@ -115,6 +191,7 @@ def scrape_storia():
                     neighborhood=district or "Iasi",
                     source_platform="Storia",
                     image_url=first_image,
+                    transaction_type=trans_type,
                     geom=from_shape(Point(float(lng), float(lat)), srid=4326),
                 )
                 db.add(new_ad)
@@ -134,9 +211,11 @@ def scrape_storia():
 #
 #OLX SCRAPER (METODA JSON)
 #
-def scrape_olx():
-    print("\nIncepem colectarea OLX...")
-    url = "https://www.olx.ro/imobiliare/apartamente-garsoniere-de-vanzare/iasi_39939/"
+def scrape_olx(target):
+    url = target["url"]
+    trans_type = target["type"]
+
+    print(f"\nIncepem colectarea OLX pentru: {trans_type}...")
     
     with sync_playwright() as p:
         try:
@@ -236,9 +315,44 @@ def scrape_olx():
                     if mp_match: sqm = float(mp_match.group(1))
 
                     # Geocoding
-                    lat, lng = 47.1585, 27.6014
-                    lat += (random.random() - 0.5) * 0.04
-                    lng += (random.random() - 0.5) * 0.04
+                    lat, lng = None, None
+                    
+                    # 1. Încercăm să detectăm zona din TITLU (ex: "Pacurari", "Copou")
+                    detected_zone_query = extract_zone_from_text(title)
+                    
+                    if detected_zone_query:
+                        print(f"Detectat zona din titlu: {detected_zone_query}")
+                        try:
+                            # Interogăm Nominatim cu zona specifică
+                            loc = geocode(detected_zone_query)
+                            if loc:
+                                lat, lng = loc.latitude, loc.longitude
+                        except Exception:
+                            pass
+
+                    # 2. Fallback: Dacă nu am găsit în titlu, folosim cartierul generic din anunț
+                    if not lat or not lng:
+                        clean_neighborhood = neighborhood.replace("Iasi", "").replace(",", "").strip()
+                        # Verificăm să nu fie gol sau prea scurt
+                        if clean_neighborhood and len(clean_neighborhood) > 2:
+                             try:
+                                loc = geocode(f"{clean_neighborhood}, Iasi, Romania")
+                                if loc:
+                                    lat, lng = loc.latitude, loc.longitude
+                             except Exception:
+                                pass
+
+                    # 3. Fallback Final: Centrul Iașului + Jitter (Randomizare)
+                    if not lat or not lng:
+                        lat, lng = 47.1585, 27.6014
+                        # Jitter mai mare pentru cele generice (rază ~3-4km)
+                        lat += (random.random() - 0.5) * 0.04 
+                        lng += (random.random() - 0.5) * 0.04
+                    else:
+                        # Jitter mic pentru cele localizate precis (rază ~100m)
+                        # Ca să nu se suprapună perfect pin-urile din același cartier
+                        lat += (random.random() - 0.5) * 0.002
+                        lng += (random.random() - 0.5) * 0.002
 
                     new_ad = models.Listing(
                         title=title,
@@ -247,6 +361,7 @@ def scrape_olx():
                         neighborhood=neighborhood,
                         source_platform="OLX",
                         image_url=image_url,
+                        transaction_type=trans_type,
                         geom=from_shape(Point(float(lng), float(lat)), srid=4326)
                     )
                     db.add(new_ad)
@@ -267,8 +382,18 @@ def scrape_olx():
         except Exception as e:
             print(f"Eroare Generala: {e}")
 
+
+def run_all_scrapers():
+    print("START AGREGATOR")
+    
+    for target in TARGETS:
+        if target["platform"] == "Storia":
+            scrape_storia(target)
+        elif target["platform"] == "OLX":
+            scrape_olx(target)
+            
+    print(" FINALIZAT")
+
+
 if __name__ == "__main__":
-    print("START AGREGATOR IMOBILIAR")
-    scrape_storia()
-    scrape_olx()
-    print("FINALIZAT")
+   run_all_scrapers()

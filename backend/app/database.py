@@ -12,7 +12,7 @@ SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# ACEASTA LINIE LIPSEA: Este fundamentul pentru toate modelele tale
+# Este fundamentul pentru toate modelele tale
 Base = declarative_base()
 
 # Dependency pentru FastAPI

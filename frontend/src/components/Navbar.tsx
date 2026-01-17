@@ -1,17 +1,28 @@
 'use client';
 import Link from 'next/link';
-import { User, Menu } from 'lucide-react'; // Asigură-te că ai lucide-react instalat
+import { User, Menu } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+
 
 export default function Navbar() {
+    const searchParams = useSearchParams();
+    const currentType = searchParams.get('type') || 'SALE';
+
+    const isActive = (type: string) => {
+        return currentType === type
+            ? "text-blue-600 font-bold border-b-2 border-blue-600"
+            : "text-slate-900 font-medium hover:text-blue-600 transition-colors";
+    };
+
     return (
         <header className="w-full bg-white border-b border-gray-100 py-4 px-6 flex items-center justify-between relative z-50">
 
-            {/* STÂNGA: Navigație Principală (Desktop) */}
+            {/* STANGA: Navigație Principală (Desktop) */}
             <nav className="hidden md:flex items-center gap-8">
-                <Link href="#" className="text-sm font-medium text-slate-900 hover:text-blue-600 transition-colors">
+                <Link href="/?type=SALE" className={`py-2 ${isActive('SALE')}`}>
                     Cumpără
                 </Link>
-                <Link href="#" className="text-sm font-medium text-slate-900 hover:text-blue-600 transition-colors">
+                <Link href="/?type=RENT" className={`py-2 ${isActive('RENT')}`}>
                     Închiriază
                 </Link>
                 <Link href="#" className="text-sm font-medium text-slate-900 hover:text-blue-600 transition-colors">
@@ -25,7 +36,7 @@ export default function Navbar() {
                 </Link>
             </nav>
 
-            {/* STÂNGA: Meniu Hamburger (Mobil) */}
+            {/* STANGA: Meniu Hamburger (Mobil) */}
             <div className="md:hidden">
                 <button className="p-2 text-slate-600">
                     <Menu size={24} />

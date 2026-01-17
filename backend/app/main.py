@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from geoalchemy2.shape import to_shape
 from . import models, schemas, database
 from typing import List, Optional
+from app import models
+from app.database import engine, get_db
 
 app = FastAPI(title="Ro-Zillow API")
 
@@ -18,13 +20,19 @@ app.add_middleware(
 @app.get("/listings", response_model=List[schemas.ListingResponse])
 def get_listings(
     db: Session = Depends(database.get_db),
+    transaction_type: Optional[str] = None,
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
     min_sqm: Optional[float] = None
 ):
     # Pornim cu o interogare de baza
     query = db.query(models.Listing)
+
+    if transaction_type:
+        query = query.filter(models.Listing.transaction_type == transaction_type)
     
+    listings = query.order_by(models.Listing.created_at.desc()).limit(500).all()
+
     # Adaugam filtre dinamice daca sunt furnizate in URL
     if min_price:
         query = query.filter(models.Listing.price_eur >= min_price)
@@ -34,6 +42,7 @@ def get_listings(
         query = query.filter(models.Listing.sqm >= min_sqm)
     
     listings = query.all()
+    
     
     # Procesarea coordonatelor ramane la fel
     for l in listings:

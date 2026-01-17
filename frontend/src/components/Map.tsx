@@ -9,29 +9,37 @@ function MapController({ activeListing, clusterGroupRef }: { activeListing: any,
     const map = useMap();
 
     useEffect(() => {
-        if (activeListing && clusterGroupRef.current) {
-            const markers = clusterGroupRef.current.getLayers();
-            const targetMarker = markers.find((m: any) =>
-                m.options.listingId === activeListing.id
-            );
+        if (activeListing) { // Verificăm doar dacă există anunțul
+            // VALIDARE CRITICĂ: Convertim și verificăm coordonatele înainte de orice acțiune
+            const lat = Number(activeListing.latitude ?? activeListing.lat);
+            const lng = Number(activeListing.longitude ?? activeListing.lng ?? activeListing.lon);
 
-            if (targetMarker) {
-                // Aceasta functie forteaza desfacerea (spiderfy) daca sunt suprapuse
-                clusterGroupRef.current.zoomToShowLayer(targetMarker, () => {
-                    setTimeout(() => {
-                        targetMarker.openPopup();
-                    }, 300);
-                });
-            } else {
-                map.flyTo([activeListing.latitude, activeListing.longitude], 18);
+            // Dacă coordonatele sunt invalide, NU facem nimic (evităm crash-ul)
+            if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) {
+                console.warn("MapController: Coordonate invalide pentru listing", activeListing.id);
+                return;
             }
-        } else if (!activeListing) {
-            // NOU: Daca activeListing este null, revenim la vederea de ansamblu
-            map.flyTo([47.1585, 27.6014], 13, {
-                duration: 1.5 // Face tranzitia mai fina
-            });
 
-            // inchidem orice popup deschis
+            if (clusterGroupRef.current) {
+                const markers = clusterGroupRef.current.getLayers();
+                const targetMarker = markers.find((m: any) =>
+                    m.options.listingId === activeListing.id
+                );
+
+                if (targetMarker) {
+                    clusterGroupRef.current.zoomToShowLayer(targetMarker, () => {
+                        setTimeout(() => {
+                            targetMarker.openPopup();
+                        }, 300);
+                    });
+                } else {
+                    // Folosim variabilele verificate (lat, lng), nu proprietățile brute
+                    map.flyTo([lat, lng], 18);
+                }
+            }
+        } else {
+            // Reset view
+            map.flyTo([47.1585, 27.6014], 13, { duration: 1.5 });
             map.closePopup();
         }
     }, [activeListing, map, clusterGroupRef]);
@@ -50,6 +58,13 @@ export default function MapView({ listings, activeId, setActiveId }: any) {
         }
         return url;
     };
+
+    const validListings = listings.filter((l: any) => {
+        const lat = Number(l.latitude ?? l.lat);
+        const lng = Number(l.longitude ?? l.lng ?? l.lon);
+
+        return !isNaN(lat) && !isNaN(lng) && (lat !== 0 || lng !== 0);
+    });
 
 
     return (
@@ -91,16 +106,10 @@ export default function MapView({ listings, activeId, setActiveId }: any) {
                         });
                     }}
                 >
-                    {listings.map((l: any) => {
+                    {validListings.map((l: any) => {
                         const isSelected = l.id === activeId;
-
-                        // Verificam daca vin ca 'latitude' sau 'lat', 'longitude' sau 'lng'
-                        let lat = Number(l.latitude ?? l.lat);
-                        let lng = Number(l.longitude ?? l.lng ?? l.lon);
-                        // Daca lipsesc, sarim peste acest anunt
-                        if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) {
-                            return null;
-                        }
+                        const lat = Number(l.latitude ?? l.lat);
+                        const lng = Number(l.longitude ?? l.lng ?? l.lon);
 
                         const popupImageUrl = getImageUrl(l.image_url, l.source_platform);
 

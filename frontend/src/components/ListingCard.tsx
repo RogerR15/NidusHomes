@@ -1,24 +1,16 @@
 'use client';
 import { Home, Maximize2, MapPin } from 'lucide-react';
-
-interface Listing {
-    id: number;
-    title: string;
-    price: number;
-    price_eur?: number;
-    sqm: number;
-    neighborhood: string;
-    image_url?: string;
-}
+import { Listing } from '@/types';
 
 export default function ListingCard({ listing }: { listing: Listing }) {
     // Folosim price_eur dacă price lipsește (pentru siguranță)
     const displayPrice = listing.price || listing.price_eur || 0;
+    const isRent = listing.transaction_type === 'RENT';
 
     const getImageUrl = (listing: any) => {
         if (!listing.image_url) return null;
 
-        // Dacă e de pe OLX, îl trecem prin proxy-ul nostru
+        // Daca e de pe OLX, îl trecem prin proxy-ul nostru
         if (listing.source_platform === 'OLX') {
             // encodeURIComponent este vital pentru a trimite URL-ul ca parametru
             return `/api/image-proxy?url=${encodeURIComponent(listing.image_url)}`;
@@ -60,7 +52,7 @@ export default function ListingCard({ listing }: { listing: Listing }) {
             <div className="p-4">
                 <div className="flex justify-between items-start mb-1">
                     <p className="text-blue-600 font-black text-2xl">
-                        {displayPrice.toLocaleString()} €
+                        {displayPrice.toLocaleString()} € {isRent && <span className="text-sm text-gray-500 font-normal">/ lună</span>}
                     </p>
                 </div>
 

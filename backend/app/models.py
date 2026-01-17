@@ -24,12 +24,18 @@ class Listing(Base):
     # imagine
     image_url = Column(String, nullable=True)
 
+    #Link original
+    listing_url = Column(String, unique=True)
+
+    # Tip tranzactie (implicit "SALE")
+    transaction_type = Column(String, default="SALE")
+
     # PostGIS: Punct geografic (Latitudine/Longitudine)
     # 4326 este codul standard pentru coordonate GPS (WGS 84)
     geom = Column(Geometry(geometry_type='POINT', srid=4326))
 
     # Metadate Ingestie
-    source_url = Column(String, unique=True) # Prevenim duplicarea URL-ului
+    #source_url = Column(String, unique=True) # Prevenim duplicarea URL-ului
     source_platform = Column(String) # Ex: "OLX", "Storia"
     is_claimed = Column(Boolean, default=False)
 

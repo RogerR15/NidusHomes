@@ -5,6 +5,8 @@ import ListingCard from '@/components/ListingCard';
 import dynamic from 'next/dynamic';
 import FilterBar from '@/components/FilterBar';
 import Navbar from '@/components/Navbar';
+import { Listing } from '@/types';
+import { useSearchParams } from 'next/navigation';
 
 // Import dinamic pentru hartă pentru a evita erorile de SSR (Server Side Rendering)
 const MapView = dynamic(() => import('@/components/Map'), {
@@ -12,26 +14,17 @@ const MapView = dynamic(() => import('@/components/Map'), {
   loading: () => <div className="h-full w-full bg-gray-100 animate-pulse" />
 });
 
-interface Listing {
-  id: number;
-  title: string;
-  price: number;
-  price_eur?: number;
-  sqm: number;
-  neighborhood: string;
-  source_platform: string;
-  image_url?: string;
-  latitude?: number;
-  longitude?: number;
-  // Add any other fields your API returns
-}
+
 
 export default function Home() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Starea pentru filtre - similar cu interfața Zillow
+  const searchParams = useSearchParams();
+  const transactionType = searchParams.get('type') || 'SALE';
+
+  // Starea pentru filtre - similar cu interfata Zillow
   const [filters, setFilters] = useState({
     searchTerm: '',
     minPrice: '',
@@ -41,7 +34,8 @@ export default function Home() {
   });
 
   useEffect(() => {
-    axios.get('http://127.0.0.1:8000/listings')
+    setLoading(true);
+    axios.get(`http://127.0.0.1:8000/listings?transaction_type=${transactionType}`)
       .then(res => {
         const sanitized = res.data.map((l: any) => ({
           ...l,
@@ -54,12 +48,12 @@ export default function Home() {
         console.error("Eroare la incarcarea datelor:", err);
         setLoading(false);
       });
-  }, []);
+  }, [transactionType]);
 
   // Logica de filtrare - se execută ori de câte ori se schimbă listings sau filtrele
   const filteredListings = useMemo(() => {
     return listings.filter(listing => {
-      // 1. Filtru Text (Titlu sau Cartier)
+      // Filtru Text (Titlu sau Cartier)
       if (filters.searchTerm) {
         const term = filters.searchTerm.toLowerCase();
         const titleMatch = listing.title?.toLowerCase().includes(term);
@@ -67,12 +61,12 @@ export default function Home() {
         if (!titleMatch && !neighMatch) return false;
       }
 
-      // 2. Filtru Preț
+      // Filtru Prey
       const price = listing.price_eur || listing.price || 0;
       if (filters.minPrice && price < Number(filters.minPrice)) return false;
       if (filters.maxPrice && price > Number(filters.maxPrice)) return false;
 
-      // 3. Filtru Suprafață (Mp)
+      //  Filtru Suprafata (Mp)
       const sqm = listing.sqm || 0;
       if (filters.minSqm && sqm < Number(filters.minSqm)) return false;
       if (filters.maxSqm && sqm > Number(filters.maxSqm)) return false;
@@ -100,17 +94,24 @@ export default function Home() {
       {/* 2. Zona de Conținut (Jos) - împărțită în Sidebar și Hartă */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* Sidebar - Lista de anunțuri */}
+        {/* Sidebar */}
         <div className="w-112.5 min-w-112.5 h-full overflow-y-auto border-r border-gray-200 bg-white z-20 shadow-lg">
           <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-            <h2 className="font-bold text-lg text-gray-800">Rezultate în Iași</h2>
+            <div>
+              <h2 className="font-bold text-lg text-gray-800">
+                {transactionType === 'RENT' ? 'Apartamente de Închiriat' : 'Apartamente de Vânzare'}
+              </h2>
+              <p className="text-xs text-gray-500">Iași, România</p>
+            </div>
             <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-              {filteredListings.length} proprietăți
+              {filteredListings.length}
             </span>
           </div>
 
           <div className="flex flex-col gap-1 p-2">
-            {filteredListings.length === 0 ? (
+            {loading ? (
+              <div className="p-10 text-center text-gray-500">Se actualizează lista...</div>
+            ) : filteredListings.length === 0 ? (
               <div className="text-center py-20">
                 <p className="text-gray-500 font-medium">Nu am găsit nicio proprietate conform filtrelor.</p>
                 <button
