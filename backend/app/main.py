@@ -17,6 +17,40 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/listings/{listing_id}")
+def get_listing_detail(listing_id: int, db: Session = Depends(get_db)):
+    listing = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    
+    # 1. Facem o copie a datelor
+    l_dict = listing.__dict__.copy()
+    
+    # 2. Ștergem datele interne SQLAlchemy
+    if "_sa_instance_state" in l_dict:
+        del l_dict["_sa_instance_state"]
+    
+    # 3. Calculăm coordonatele (Lat/Lng) din geometrie
+    lat, lng = None, None
+    if listing.geom is not None:
+        try:
+            # Convertim din format binar în formă geometrică
+            shape = to_shape(listing.geom)
+            lat, lng = shape.y, shape.x
+        except Exception:
+            pass
+    
+    # Le adăugăm ca numere simple
+    l_dict["latitude"] = lat
+    l_dict["longitude"] = lng
+    
+    # 4. FIX CRITIC: Ștergem obiectul 'geom' care cauza eroarea 500
+    if "geom" in l_dict:
+        del l_dict["geom"]
+    
+    return l_dict
+
+
 @app.get("/listings", response_model=List[schemas.ListingResponse])
 def get_listings(
     db: Session = Depends(database.get_db),

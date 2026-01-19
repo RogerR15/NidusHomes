@@ -94,6 +94,48 @@ def extract_zone_from_text(text):
     
     return None
 
+def extract_details_from_text(text):
+    """Extrage camere, etaj, an din text folosind Regex."""
+    if not text:
+        return {}
+    
+    text = text.lower()
+    details = {}
+
+    # 1. Camere (ex: "2 camere", "3 cam")
+    rooms_match = re.search(r'(\d+)\s*(cam|camera|camere)', text)
+    if rooms_match:
+        try:
+            details['rooms'] = int(rooms_match.group(1))
+        except: pass
+
+    # 2. Etaj (ex: "etaj 3", "etajul 1", "et. 2")
+    floor_match = re.search(r'(?:etaj|et\.|etajul)\s*(\d+)', text)
+    if floor_match:
+        try:
+            details['floor'] = int(floor_match.group(1))
+        except: pass
+    elif "parter" in text:
+        details['floor'] = 0
+
+    # 3. An Construcție (ex: "1980", "2022")
+    # Căutăm ani plauzibili între 1900 și 2030
+    year_match = re.search(r'\b(19\d{2}|20[0-2]\d)\b', text)
+    if year_match:
+        try:
+            details['year_built'] = int(year_match.group(1))
+        except: pass
+        
+    # 4. Compartimentare
+    if "decomandat" in text and "semidecomandat" not in text:
+        details['compartmentation'] = "Decomandat"
+    elif "semidecomandat" in text:
+        details['compartmentation'] = "Semidecomandat"
+    elif "nedecomandat" in text:
+        details['compartmentation'] = "Nedecomandat"
+
+    return details
+
 # Returnam sesiunea direct
 def get_db_session():
     return SessionLocal()
@@ -135,6 +177,10 @@ def scrape_storia(target):
 
             title = item.get('title')
             if not title: continue
+
+            description = item.get('description', '')
+
+            params = item.get('parameters', [])
             
             # Verificare duplicate
             if db.query(models.Listing).filter(models.Listing.title == title).first():
@@ -183,6 +229,43 @@ def scrape_storia(target):
                 except Exception:
                     lat, lng = 47.1585, 27.6014
 
+
+            rooms = None
+            floor = None
+            year_built = None
+            compartmentation = None
+
+            for p in params:
+                if p.get('key') == 'rooms_num':
+                    try: rooms = int(p.get('value'))
+                    except: pass
+                elif p.get('key') == 'floor_no':
+                    try: floor = int(p.get('value').replace('floor_', ''))
+                    except: pass
+                elif p.get('key') == 'construction_year':
+                    try: year_built = int(p.get('value'))
+                    except: pass
+
+            # Fallback la Regex dacă lipsesc din parametri
+            text_blob = (title + " " + description)
+            regex_details = extract_details_from_text(text_blob)
+            
+            if not rooms: rooms = regex_details.get('rooms')
+            if not floor: floor = regex_details.get('floor')
+            if not year_built: year_built = regex_details.get('year_built')
+            if not compartmentation: compartmentation = regex_details.get('compartmentation')
+
+            # Imagini (Array)
+            images_list = []
+            raw_images = item.get('images', [])
+            for img in raw_images:
+                if img.get('large'):
+                    images_list.append(img.get('large'))
+                elif img.get('medium'):
+                    images_list.append(img.get('medium'))
+            
+            first_image = images_list[0] if images_list else None
+
             try:
                 new_ad = models.Listing(
                     title=title,
@@ -193,6 +276,11 @@ def scrape_storia(target):
                     image_url=first_image,
                     transaction_type=trans_type,
                     geom=from_shape(Point(float(lng), float(lat)), srid=4326),
+                    rooms=rooms,
+                    floor=floor,
+                    year_built=year_built,
+                    compartmentation=compartmentation,
+                    images=images_list,
                 )
                 db.add(new_ad)
                 count += 1
@@ -246,17 +334,55 @@ def scrape_olx(target):
 
             # Gasim toate cardurile
             ads_locators = page.locator('div[data-cy="l-card"]').all()
-            print(f"🔎 Am gasit {len(ads_locators)} carduri. Incep extragerea...")
+            print(f"Am gasit {len(ads_locators)} carduri. Incep extragerea...")
 
             db = get_db_session()
             count = 0
             
+            seen_urls = set()
+
             for i, ad in enumerate(ads_locators):
                 try:
                     # Scroll la card pentru a declansa Incarcarea imaginii
                     ad.scroll_into_view_if_needed()
                     # Asteptam o fractiune de secunda
-                    # time.sleep(0.1) 
+                    time.sleep(0.1) 
+
+                    title = ""
+                    image_url = None
+                    price = 0
+                    sqm = 0
+                    neighborhood = "Iasi"
+                    lat, lng = None, None
+                    images_list = []
+
+                    # --- 1. EXTRAGERE URL (CRITIC: Primul pas pentru verificare) ---
+                    # Link-ul este de obicei pe primul tag <a> din card
+                    listing_url = ad.locator("a").first.get_attribute("href")
+                    
+                    # Dacă linkul e relativ (începe cu /), îi punem prefixul
+                    if listing_url and not listing_url.startswith("http"):
+                        listing_url = "https://www.olx.ro" + listing_url
+
+                    if not listing_url:
+                        continue
+
+                    # A. Verificare Locală (dacă apare de 2 ori pe pagină)
+                    if listing_url in seen_urls:
+                        # print(f"Dublura pe pagina (skip): {listing_url}")
+                        continue
+                    seen_urls.add(listing_url)
+
+                    # --- VERIFICARE STRICTĂ DUPLICAT DUPĂ URL ---
+                    # Verificăm dacă linkul există deja. Dacă da, sărim peste el sau îl actualizăm.
+                    existing_ad = db.query(models.Listing).filter(models.Listing.listing_url == listing_url).first()
+                    
+                    if existing_ad:
+                        # OPTIONAL: Aici am putea actualiza prețul și last_seen_at ("Heureca! L-am văzut iar!")
+                        # Pentru acum, doar sărim ca să nu crăpe scriptul.
+                        # print(f"♻️ Anunt existent (skip): {listing_url[:30]}...")
+                        continue
+
 
                     #TITLU
                     title = ""
@@ -266,10 +392,22 @@ def scrape_olx(target):
                         title = ad.locator("h4").first.inner_text()
                     
                     if not title: continue
+                    
+                    # Pe viitor vom face "Deep Scraping" (intrat pe fiecare link).
+                    images_list = []
+                    if image_url:
+                        images_list.append(image_url)
 
                     # Verificare Duplicat
                     if db.query(models.Listing).filter(models.Listing.title == title).first():
                         continue
+
+                    full_text = ad.inner_text()
+
+                    # Extragem detalii suplimentare cu Regex
+                    details = extract_details_from_text(title + " " + full_text)
+
+
 
                     #PRET
                     price_text = ""
@@ -362,7 +500,14 @@ def scrape_olx(target):
                         source_platform="OLX",
                         image_url=image_url,
                         transaction_type=trans_type,
-                        geom=from_shape(Point(float(lng), float(lat)), srid=4326)
+                        geom=from_shape(Point(float(lng), float(lat)), srid=4326),
+                        rooms=details.get('rooms'),
+                        floor=details.get('floor'),
+                        year_built=details.get('year_built'),
+                        compartmentation=details.get('compartmentation'),
+                        images=images_list,
+                        listing_url=listing_url,
+                        status="ACTIVE",
                     )
                     db.add(new_ad)
                     count += 1
@@ -371,8 +516,14 @@ def scrape_olx(target):
                     print(f"[OLX] + Adaugat: {title[:30]}... ({int(price) if price else 0}€)")
 
                 except Exception as e:
-                    # print(f"Eroare la un card: {e}")
+                    print(f"Eroare la un card: {e}")
                     continue
+
+            try:
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                print(f"Eroare la COMMIT DB: {e}")
 
             db.commit()
             db.close()

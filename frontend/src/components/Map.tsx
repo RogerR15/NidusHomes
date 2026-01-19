@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import Link from 'next/link';
 
 function MapController({ activeListing, clusterGroupRef }: { activeListing: any, clusterGroupRef: any }) {
     const map = useMap();
@@ -77,7 +78,7 @@ export default function MapView({ listings, activeId, setActiveId }: any) {
             >
                 <TileLayer
                     attribution='&copy; CARTO'
-                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                    url='https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png'
                 />
 
                 <MapController activeListing={activeListing} clusterGroupRef={clusterGroupRef} />
@@ -146,17 +147,34 @@ export default function MapView({ listings, activeId, setActiveId }: any) {
                             >
                                 <Popup>
                                     <div className="w-48 overflow-hidden rounded-lg">
-                                        {popupImageUrl &&
-                                            <img src={popupImageUrl}
-                                                className="w-full h-24 object-cover" alt=""
-                                                onError={(e) => {
-                                                    e.currentTarget.src = "https://placehold.co/600x400/e2e8f0/1e293b?text=Fara+Imagine";
-                                                }}
-                                            />}
+                                        {/* Partea de Imagine (deja existentă) */}
+                                        {popupImageUrl && (
+                                            // Poți face și imaginea clickabilă înfășurând-o în Link
+                                            <Link href={`/listing/${l.id}`}>
+                                                <img
+                                                    src={popupImageUrl}
+                                                    className="w-full h-24 object-cover hover:opacity-90 transition-opacity cursor-pointer"
+                                                    alt={l.title}
+                                                    onError={(e) => {
+                                                        e.currentTarget.src = "https://placehold.co/600x400/e2e8f0/1e293b?text=Fara+Imagine";
+                                                    }}
+                                                />
+                                            </Link>
+                                        )}
+
                                         <div className="p-2">
-                                            <p className="font-bold text-sm leading-tight">{l.title}</p>
+                                            <p className="font-bold text-sm leading-tight truncate">{l.title}</p>
                                             <p className="text-blue-600 font-bold">{(l.price_eur || 0).toLocaleString()} €</p>
-                                            <p className="text-xs text-gray-500">{l.neighborhood || 'Iasi'}</p>
+                                            <p className="text-xs text-gray-500 mb-2">{l.neighborhood || 'Iasi'}</p>
+
+                                            {/* 2. BUTONUL DE VEZI DETALII */}
+                                            <Link
+                                                href={`/listing/${l.id}`}
+                                                className="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 rounded transition-colors"
+                                            >
+                                                Vezi Detalii
+                                            </Link>
+
                                         </div>
                                     </div>
                                 </Popup>

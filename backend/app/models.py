@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from geoalchemy2 import Geometry # Pentru PostGIS
 from .database import Base
+from sqlalchemy.dialects.postgresql import ARRAY
 
 class Listing(Base):
     __tablename__ = "listings"
@@ -16,6 +17,8 @@ class Listing(Base):
     sqm = Column(Float, nullable=False)
     rooms = Column(Integer)
     floor = Column(Integer) # 0 pentru parter
+    year_built = Column(Integer, nullable=True)
+    compartmentation = Column(String, nullable=True) # Ex: Decomandat
 
     # Localizare
     neighborhood = Column(String, index=True)
@@ -23,6 +26,7 @@ class Listing(Base):
 
     # imagine
     image_url = Column(String, nullable=True)
+    images = Column(ARRAY(String), nullable=True)
 
     #Link original
     listing_url = Column(String, unique=True)
@@ -38,6 +42,8 @@ class Listing(Base):
     #source_url = Column(String, unique=True) # Prevenim duplicarea URL-ului
     source_platform = Column(String) # Ex: "OLX", "Storia"
     is_claimed = Column(Boolean, default=False)
+    status = Column(String, default="ACTIVE")
+    last_seen_at = Column(DateTime(timezone=True), server_default=func.now())
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
