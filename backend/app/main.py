@@ -5,6 +5,7 @@ from . import models, schemas, database
 from typing import List, Optional
 from app import models
 from app.database import engine, get_db
+import json
 
 app = FastAPI(title="Ro-Zillow API")
 
@@ -51,41 +52,81 @@ def get_listing_detail(listing_id: int, db: Session = Depends(get_db)):
     return l_dict
 
 
-@app.get("/listings", response_model=List[schemas.ListingResponse])
+@app.get("/listings")
 def get_listings(
     db: Session = Depends(database.get_db),
+    limit: int = 100,
     transaction_type: Optional[str] = None,
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
-    min_sqm: Optional[float] = None
+    min_sqm: Optional[float] = None,
+    rooms_min: Optional[int] = None,
+    neighborhood: Optional[str] = None
 ):
-    # Pornim cu o interogare de baza
-    query = db.query(models.Listing)
+    # 1. Pornim doar cu anunțurile ACTIVE (Soft Delete logic)
+    query = db.query(models.Listing).filter(models.Listing.status == 'ACTIVE')
 
+    # 2. Aplicăm filtrele pe rând (construim query-ul)
     if transaction_type:
         query = query.filter(models.Listing.transaction_type == transaction_type)
     
-    listings = query.order_by(models.Listing.created_at.desc()).limit(500).all()
-
-    # Adaugam filtre dinamice daca sunt furnizate in URL
     if min_price:
         query = query.filter(models.Listing.price_eur >= min_price)
+        
     if max_price:
         query = query.filter(models.Listing.price_eur <= max_price)
+        
     if min_sqm:
         query = query.filter(models.Listing.sqm >= min_sqm)
+
+    if rooms_min:
+        query = query.filter(models.Listing.rooms >= rooms_min)
+
+    if neighborhood:
+        # Căutare case-insensitive (ILIKE)
+        query = query.filter(models.Listing.neighborhood.ilike(f"%{neighborhood}%"))
     
-    listings = query.all()
+    # 3. Executăm query-ul O SINGURĂ DATĂ, la final
+    listings = query.order_by(models.Listing.created_at.desc()).limit(limit).all()
     
-    
-    # Procesarea coordonatelor ramane la fel
+    # 4. Procesare rezultate (Fix pentru eroarea WKBElement / Geom)
+    results = []
     for l in listings:
-        if l.geom:
-            point = to_shape(l.geom)
-            l.longitude = point.x
-            l.latitude = point.y
+        # Convertim în dicționar
+        l_dict = l.__dict__.copy()
+        
+        # Curățăm datele interne SQLAlchemy
+        if "_sa_instance_state" in l_dict:
+            del l_dict["_sa_instance_state"]
             
-    return listings
+        # Extragem coordonatele
+        lat, lng = None, None
+        if l.geom is not None:
+            try:
+                point = to_shape(l.geom)
+                lat, lng = point.y, point.x
+            except: pass
+            
+        l_dict["latitude"] = lat
+        l_dict["longitude"] = lng
+        
+        # FIX CRITIC: Ștergem obiectul geom care dă erori la serializare
+        if "geom" in l_dict:
+            del l_dict["geom"]
+
+        if "images" in l_dict and isinstance(l_dict["images"], str):
+            try:
+                l_dict["images"] = json.loads(l_dict["images"])
+            except:
+                l_dict["images"] = [] # Fallback dacă e corupt
+
+        if l_dict.get("rooms"): l_dict["rooms"] = int(l_dict["rooms"])
+        if l_dict.get("floor"): l_dict["floor"] = int(l_dict["floor"])
+        if l_dict.get("price_eur"): l_dict["price_eur"] = int(l_dict["price_eur"])
+            
+        results.append(l_dict)
+            
+    return results
 
 @app.post("/listings", response_model=schemas.ListingResponse)
 def create_listing(listing: schemas.ListingCreate, db: Session = Depends(database.get_db)):

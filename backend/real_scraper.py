@@ -118,8 +118,8 @@ def extract_details_from_text(text):
     elif "parter" in text:
         details['floor'] = 0
 
-    # 3. An Construcție (ex: "1980", "2022")
-    # Căutăm ani plauzibili între 1900 și 2030
+    # 3. An Constructie (ex: "1980", "2022")
+    # Cautam ani plauzibili Intre 1900 si 2030
     year_match = re.search(r'\b(19\d{2}|20[0-2]\d)\b', text)
     if year_match:
         try:
@@ -149,7 +149,7 @@ def scrape_storia(target):
     print(f"\nIncepem colectarea STORIA pentru: {trans_type}...")
     
     try:
-        response = requests.get(url, headers=HEADERS)
+        response = requests.get(url, headers=HEADERS, timeout=15)
         soup = BeautifulSoup(response.text, 'html.parser')
         script_tag = soup.find("script", {"id": "__NEXT_DATA__"})
         
@@ -161,16 +161,21 @@ def scrape_storia(target):
         
         items = []
         try:
-            items = data['props']['pageProps']['data']['searchAds']['items']
+            # Incercam ambele locatii posibile pentru anunturi
+            props = data.get('props', {}).get('pageProps', {})
+            if 'data' in props and 'searchAds' in props['data']:
+                items = props['data']['searchAds']['items']
+            elif 'ads' in props:
+                items = props['ads']
         except KeyError:
             print("Structura JSON Storia s-a schimbat sau nu sunt anunturi.")
             return
 
         print(f"Storia: Gasite {len(items)} anunturi.")
 
-        # Incepem procesarea anunturilor
         db = get_db_session()
         count = 0
+        seen_urls = set() # Lista pentru a evita duplicatele din acelasi request
 
         for item in items:
             if not item: continue
@@ -178,15 +183,40 @@ def scrape_storia(target):
             title = item.get('title')
             if not title: continue
 
+            # CONSTRUIRE LINK
+            slug = item.get('slug')
+            listing_url = None
+            
+            if slug:
+                listing_url = f"https://www.storia.ro/ro/oferta/{slug}"
+            else:
+                listing_url = item.get('url')
+                if listing_url and not listing_url.startswith("http"):
+                    listing_url = "https://www.storia.ro" + listing_url
+            
+            if not listing_url:
+                continue 
+            
+            # Curatam link-ul de parametri extra
+            listing_url = listing_url.split('?')[0]
+
+            # DEDUPLICARE LOCALA (CRITIC!)
+            # Daca Storia ne da acelasi anunt de 2 ori In lista, Il ignoram pe al doilea
+            if listing_url in seen_urls:
+                continue
+            seen_urls.add(listing_url)
+
+            # DEDUPLICARE BAZA DE DATE 
+            if db.query(models.Listing).filter(models.Listing.listing_url == listing_url).first():
+                continue
+
             description = item.get('description', '')
+            # Curatare sumara HTML din descriere
+            if description:
+                description = BeautifulSoup(description, "html.parser").get_text(separator="\n")
 
             params = item.get('parameters', [])
             
-            # Verificare duplicate
-            if db.query(models.Listing).filter(models.Listing.title == title).first():
-                continue
-
-            # Extragere date cu protectie la null
             price_data = item.get('totalPrice') or {} 
             price = price_data.get('value')
 
@@ -195,40 +225,29 @@ def scrape_storia(target):
             images = item.get('images') or []
             first_image = None
             if images and len(images) > 0:
-                first_image = images[0].get('medium')
+                first_image = images[0].get('medium') or images[0].get('large') or images[0].get('url')
 
-            location_data = item.get('location') or {}
-            address_info = location_data.get('address') or {}
-            street_obj = address_info.get('street') or {}
-            
-            street_name = None
-            if isinstance(street_obj, dict):
-                street_name = street_obj.get('name')
-            
-            district = "Iasi"
-            reverse_geo = location_data.get('reverseGeocoding') or {}
-            loc_list = reverse_geo.get('locations') or []
-            
-            for loc in loc_list:
-                if loc.get('locationLevel') == 'district':
-                    district = loc.get('name')
-                    break
-
+            # Locatie
             map_data = item.get('map') or {}
             lat = map_data.get('lat')
             lng = map_data.get('lon')
+            district = "Iasi" 
 
             if not lat or not lng:
-                query = f"{street_name or district}, Iasi, Romania"
                 try:
-                    location = geocode(query)
-                    if location:
-                        lat, lng = location.latitude, location.longitude
+                    loc_name = item.get('location', {}).get('reverseGeocoding', {}).get('locations', [])[-1].get('fullName')
+                    if loc_name: district = loc_name
+                    
+                    if district != "Iasi":
+                        location = geocode(f"{district}, Romania")
+                        if location:
+                            lat, lng = location.latitude, location.longitude
+                        else:
+                            lat, lng = 47.1585, 27.6014
                     else:
-                        lat, lng = 47.1585, 27.6014
-                except Exception:
+                         lat, lng = 47.1585, 27.6014
+                except:
                     lat, lng = 47.1585, 27.6014
-
 
             rooms = None
             floor = None
@@ -236,59 +255,59 @@ def scrape_storia(target):
             compartmentation = None
 
             for p in params:
-                if p.get('key') == 'rooms_num':
-                    try: rooms = int(p.get('value'))
+                k = p.get('key')
+                v = p.get('value')
+                if k == 'rooms_num':
+                    try: rooms = int(v)
                     except: pass
-                elif p.get('key') == 'floor_no':
-                    try: floor = int(p.get('value').replace('floor_', ''))
+                elif k == 'floor_no':
+                    try: floor = int(v.replace('floor_', ''))
                     except: pass
-                elif p.get('key') == 'construction_year':
-                    try: year_built = int(p.get('value'))
+                elif k == 'construction_year':
+                    try: year_built = int(v)
                     except: pass
 
-            # Fallback la Regex dacă lipsesc din parametri
-            text_blob = (title + " " + description)
-            regex_details = extract_details_from_text(text_blob)
-            
+            regex_details = extract_details_from_text(title)
             if not rooms: rooms = regex_details.get('rooms')
             if not floor: floor = regex_details.get('floor')
             if not year_built: year_built = regex_details.get('year_built')
             if not compartmentation: compartmentation = regex_details.get('compartmentation')
 
-            # Imagini (Array)
             images_list = []
-            raw_images = item.get('images', [])
-            for img in raw_images:
-                if img.get('large'):
-                    images_list.append(img.get('large'))
-                elif img.get('medium'):
-                    images_list.append(img.get('medium'))
+            for img in images:
+                u = img.get('large') or img.get('medium') or img.get('url')
+                if u: images_list.append(u)
             
-            first_image = images_list[0] if images_list else None
-
+            # SALVARE INDIVIDUALA (COMMIT PER ITEM) 
             try:
                 new_ad = models.Listing(
                     title=title,
+                    description=description,
                     price_eur=float(price) if price else 0,
                     sqm=float(area) if area else 0,
-                    neighborhood=district or "Iasi",
+                    neighborhood=district,
                     source_platform="Storia",
                     image_url=first_image,
+                    images=images_list,
                     transaction_type=trans_type,
                     geom=from_shape(Point(float(lng), float(lat)), srid=4326),
                     rooms=rooms,
                     floor=floor,
                     year_built=year_built,
                     compartmentation=compartmentation,
-                    images=images_list,
+                    listing_url=listing_url,
+                    status="ACTIVE"
                 )
                 db.add(new_ad)
+                db.commit() # SALVAM IMEDIAT
                 count += 1
                 print(f"[Storia] + Adaugat: {title[:30]}... ({int(price) if price else 0}€)")
+            
             except Exception as e:
-                print(f"Eroare la scrierea In DB: {e}")
+                db.rollback() # Daca unul esueaza (duplicat), nu-i strica pe ceilalti
+                # print(f"Skip duplicat/eroare: {e}")
+                pass
 
-        db.commit()
         db.close()
         print(f"Gata Storia: {count} anunturi noi.")
 
@@ -320,7 +339,7 @@ def scrape_olx(target):
                 accept_btn = page.locator("button#onetrust-accept-btn-handler")
                 if accept_btn.is_visible():
                     accept_btn.click()
-                    time.sleep(1)
+                    time.sleep(2)
             except: pass
 
             # Incarcare Anunturi 
@@ -346,7 +365,7 @@ def scrape_olx(target):
                     # Scroll la card pentru a declansa Incarcarea imaginii
                     ad.scroll_into_view_if_needed()
                     # Asteptam o fractiune de secunda
-                    time.sleep(0.1) 
+                    time.sleep(0.3) 
 
                     title = ""
                     image_url = None
@@ -360,27 +379,27 @@ def scrape_olx(target):
                     # Link-ul este de obicei pe primul tag <a> din card
                     listing_url = ad.locator("a").first.get_attribute("href")
                     
-                    # Dacă linkul e relativ (începe cu /), îi punem prefixul
+                    # Daca linkul e relativ (Incepe cu /), Ii punem prefixul
                     if listing_url and not listing_url.startswith("http"):
                         listing_url = "https://www.olx.ro" + listing_url
 
                     if not listing_url:
                         continue
 
-                    # A. Verificare Locală (dacă apare de 2 ori pe pagină)
+                    # A. Verificare Locala (daca apare de 2 ori pe pagina)
                     if listing_url in seen_urls:
                         # print(f"Dublura pe pagina (skip): {listing_url}")
                         continue
                     seen_urls.add(listing_url)
 
-                    # --- VERIFICARE STRICTĂ DUPLICAT DUPĂ URL ---
-                    # Verificăm dacă linkul există deja. Dacă da, sărim peste el sau îl actualizăm.
+                    # --- VERIFICARE STRICTa DUPLICAT DUPa URL ---
+                    # Verificam daca linkul exista deja. Daca da, sarim peste el sau Il actualizam.
                     existing_ad = db.query(models.Listing).filter(models.Listing.listing_url == listing_url).first()
                     
                     if existing_ad:
-                        # OPTIONAL: Aici am putea actualiza prețul și last_seen_at ("Heureca! L-am văzut iar!")
-                        # Pentru acum, doar sărim ca să nu crăpe scriptul.
-                        # print(f"♻️ Anunt existent (skip): {listing_url[:30]}...")
+                        # OPTIONAL: Aici am putea actualiza pretul si last_seen_at ("Heureca! L-am vazut iar!")
+                        # Pentru acum, doar sarim ca sa nu crape scriptul.
+                        # print(f"Anunt existent (skip): {listing_url[:30]}...")
                         continue
 
 
@@ -393,7 +412,7 @@ def scrape_olx(target):
                     
                     if not title: continue
                     
-                    # Pe viitor vom face "Deep Scraping" (intrat pe fiecare link).
+                    # IMAGINE
                     images_list = []
                     if image_url:
                         images_list.append(image_url)
@@ -455,23 +474,23 @@ def scrape_olx(target):
                     # Geocoding
                     lat, lng = None, None
                     
-                    # 1. Încercăm să detectăm zona din TITLU (ex: "Pacurari", "Copou")
+                    # 1. Incercam sa detectam zona din TITLU (ex: "Pacurari", "Copou")
                     detected_zone_query = extract_zone_from_text(title)
                     
                     if detected_zone_query:
                         print(f"Detectat zona din titlu: {detected_zone_query}")
                         try:
-                            # Interogăm Nominatim cu zona specifică
+                            # Interogam Nominatim cu zona specifica
                             loc = geocode(detected_zone_query)
                             if loc:
                                 lat, lng = loc.latitude, loc.longitude
                         except Exception:
                             pass
 
-                    # 2. Fallback: Dacă nu am găsit în titlu, folosim cartierul generic din anunț
+                    # 2. Fallback: Daca nu am gasit In titlu, folosim cartierul generic din anunt
                     if not lat or not lng:
                         clean_neighborhood = neighborhood.replace("Iasi", "").replace(",", "").strip()
-                        # Verificăm să nu fie gol sau prea scurt
+                        # Verificam sa nu fie gol sau prea scurt
                         if clean_neighborhood and len(clean_neighborhood) > 2:
                              try:
                                 loc = geocode(f"{clean_neighborhood}, Iasi, Romania")
@@ -480,15 +499,15 @@ def scrape_olx(target):
                              except Exception:
                                 pass
 
-                    # 3. Fallback Final: Centrul Iașului + Jitter (Randomizare)
+                    # 3. Fallback Final: Centrul Iasului + Jitter (Randomizare)
                     if not lat or not lng:
                         lat, lng = 47.1585, 27.6014
-                        # Jitter mai mare pentru cele generice (rază ~3-4km)
+                        # Jitter mai mare pentru cele generice (raza ~3-4km)
                         lat += (random.random() - 0.5) * 0.04 
                         lng += (random.random() - 0.5) * 0.04
                     else:
-                        # Jitter mic pentru cele localizate precis (rază ~100m)
-                        # Ca să nu se suprapună perfect pin-urile din același cartier
+                        # Jitter mic pentru cele localizate precis (raza ~100m)
+                        # Ca sa nu se suprapuna perfect pin-urile din acelasi cartier
                         lat += (random.random() - 0.5) * 0.002
                         lng += (random.random() - 0.5) * 0.002
 

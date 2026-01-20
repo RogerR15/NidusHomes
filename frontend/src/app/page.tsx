@@ -1,153 +1,133 @@
 'use client';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import ListingCard from '@/components/ListingCard';
 import dynamic from 'next/dynamic';
-import FilterBar from '@/components/FilterBar';
+import FilterBar from '@/components/FilterBar'; // Componenta Zillow-style
 import Navbar from '@/components/Navbar';
 import { Listing } from '@/types';
-import { useSearchParams } from 'next/navigation';
 
-// Import dinamic pentru hartă pentru a evita erorile de SSR (Server Side Rendering)
+// Import dinamic hartă
 const MapView = dynamic(() => import('@/components/Map'), {
   ssr: false,
-  loading: () => <div className="h-full w-full bg-gray-100 animate-pulse" />
+  loading: () => <div className="h-full w-full bg-gray-100 flex items-center justify-center text-gray-400">Se încarcă harta...</div>
 });
-
-
 
 export default function Home() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const searchParams = useSearchParams();
-  const transactionType = searchParams.get('type') || 'SALE';
-
-  // Starea pentru filtre - similar cu interfata Zillow
-  const [filters, setFilters] = useState({
-    searchTerm: '',
-    minPrice: '',
-    maxPrice: '',
-    minSqm: '',
-    maxSqm: ''
-  });
-
-  useEffect(() => {
+  // --- 1. Funcția de Căutare pe Server (Backend Filtering) ---
+  const fetchListings = async (filters: any = {}) => {
     setLoading(true);
-    axios.get(`http://127.0.0.1:8000/listings?transaction_type=${transactionType}`)
-      .then(res => {
-        const sanitized = res.data.map((l: any) => ({
-          ...l,
-          price: l.price_eur || l.price || 0
-        }));
-        setListings(sanitized);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Eroare la incarcarea datelor:", err);
-        setLoading(false);
-      });
-  }, [transactionType]);
+    try {
+      // Construim parametrii pentru URL
+      const params = new URLSearchParams();
 
-  // Logica de filtrare - se execută ori de câte ori se schimbă listings sau filtrele
-  const filteredListings = useMemo(() => {
-    return listings.filter(listing => {
-      // Filtru Text (Titlu sau Cartier)
-      if (filters.searchTerm) {
-        const term = filters.searchTerm.toLowerCase();
-        const titleMatch = listing.title?.toLowerCase().includes(term);
-        const neighMatch = listing.neighborhood?.toLowerCase().includes(term);
-        if (!titleMatch && !neighMatch) return false;
-      }
+      // Mapăm filtrele din Frontend la ce așteaptă Backend-ul (main.py)
+      if (filters.transaction_type) params.append('transaction_type', filters.transaction_type);
+      if (filters.min_price) params.append('min_price', filters.min_price);
+      if (filters.max_price) params.append('max_price', filters.max_price);
+      if (filters.rooms_min) params.append('rooms_min', filters.rooms_min);
+      if (filters.neighborhood) params.append('neighborhood', filters.neighborhood);
 
-      // Filtru Prey
-      const price = listing.price_eur || listing.price || 0;
-      if (filters.minPrice && price < Number(filters.minPrice)) return false;
-      if (filters.maxPrice && price > Number(filters.maxPrice)) return false;
+      // Apelăm API-ul
+      const res = await axios.get(`http://127.0.0.1:8000/listings?${params.toString()}`);
 
-      //  Filtru Suprafata (Mp)
-      const sqm = listing.sqm || 0;
-      if (filters.minSqm && sqm < Number(filters.minSqm)) return false;
-      if (filters.maxSqm && sqm > Number(filters.maxSqm)) return false;
+      // Procesăm datele (backend-ul trimite snake_case, frontend-ul uneori vrea camelCase, dar aici folosim direct ce vine)
+      setListings(res.data);
+    } catch (error) {
+      console.error("Eroare la fetch:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      return true;
-    });
-  }, [listings, filters]);
-
-  if (loading) return (
-    <div className="h-screen w-full flex items-center justify-center bg-white text-blue-600 font-bold">
-      Se încarcă proprietățile din Iași...
-    </div>
-  );
+  // --- 2. Încărcare Inițială ---
+  useEffect(() => {
+    // Pornim implicit cu vânzări
+    fetchListings({ transaction_type: 'SALE' });
+  }, []);
 
   return (
-    // Container principal: Flex pe coloană pentru a pune FilterBar sus
-    <main className="flex flex-col h-screen w-full overflow-hidden bg-white">
+    <main className="flex flex-col h-screen w-full bg-white font-sans overflow-hidden">
 
-      {/* Navbar deasupra tuturor */}
+      {/* Navbar */}
       <Navbar />
 
-      {/* 1. Bara de Filtre (Sus) */}
-      <FilterBar filters={filters} setFilters={setFilters} />
+      {/* --- FilterBar (Sticky sub Navbar) --- */}
+      <div className="z-40 border-b border-gray-200 shadow-sm bg-white">
+        {/* Aici conectăm FilterBar la funcția fetchListings prin prop-ul onFilter */}
+        <FilterBar onFilter={(newFilters) => fetchListings(newFilters)} />
+      </div>
 
-      {/* 2. Zona de Conținut (Jos) - împărțită în Sidebar și Hartă */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* --- Zona Principală (Split View) --- */}
+      <div className="flex flex-1 overflow-hidden relative">
 
-        {/* Sidebar */}
-        <div className="w-112.5 min-w-112.5 h-full overflow-y-auto border-r border-gray-200 bg-white z-20 shadow-lg">
-          <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
+        {/* A. Lista (Sidebar Stânga) */}
+        <div className="w-105 h-full overflow-y-auto border-r border-gray-200 bg-white z-20 shadow-xl hidden lg:flex flex-col">
+
+          {/* Header Listă */}
+          <div className="p-4 border-b bg-gray-50 flex justify-between items-center sticky top-0 z-10">
             <div>
-              <h2 className="font-bold text-lg text-gray-800">
-                {transactionType === 'RENT' ? 'Apartamente de Închiriat' : 'Apartamente de Vânzare'}
-              </h2>
+              <h2 className="font-bold text-lg text-gray-800">Rezultate</h2>
               <p className="text-xs text-gray-500">Iași, România</p>
             </div>
-            <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-              {filteredListings.length}
+            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+              {listings.length} proprietăți
             </span>
           </div>
 
-          <div className="flex flex-col gap-1 p-2">
+          {/* Lista efectivă */}
+          <div className="flex-1 p-2 space-y-2">
             {loading ? (
-              <div className="p-10 text-center text-gray-500">Se actualizează lista...</div>
-            ) : filteredListings.length === 0 ? (
-              <div className="text-center py-20">
-                <p className="text-gray-500 font-medium">Nu am găsit nicio proprietate conform filtrelor.</p>
+              // Skeleton Loading
+              [1, 2, 3].map(i => <div key={i} className="h-32 bg-gray-100 animate-pulse rounded-xl mx-2" />)
+            ) : listings.length === 0 ? (
+              <div className="text-center py-10 px-4">
+                <p className="text-gray-500 mb-2">Nu am găsit anunțuri pentru filtrele selectate.</p>
                 <button
-                  onClick={() => setFilters({ searchTerm: '', minPrice: '', maxPrice: '', minSqm: '', maxSqm: '' })}
-                  className="mt-4 text-blue-600 font-bold hover:underline"
+                  onClick={() => fetchListings({ transaction_type: 'SALE' })}
+                  className="text-blue-600 font-bold hover:underline text-sm"
                 >
-                  Resetează filtrele
+                  Resetează Căutarea
                 </button>
               </div>
             ) : (
-              filteredListings.map((l: any) => (
+              listings.map((l) => (
                 <div
                   key={l.id}
                   onClick={() => setActiveId(l.id)}
-                  className={`p-2 transition-all duration-200 ${activeId === l.id ? 'bg-blue-50' : 'hover:bg-gray-50'
+                  className={`cursor-pointer transition-all duration-200 rounded-xl border ${activeId === l.id
+                    ? 'border-blue-500 bg-blue-50 shadow-md ring-1 ring-blue-500'
+                    : 'border-transparent hover:bg-gray-50 hover:border-gray-200'
                     }`}
                 >
-                  <div className={`rounded-xl overflow-hidden transition-all ${activeId === l.id ? 'ring-2 ring-blue-500 shadow-md' : ''
-                    }`}>
-                    <ListingCard listing={l} />
-                  </div>
+                  <ListingCard listing={l} />
                 </div>
               ))
             )}
           </div>
         </div>
 
-        {/* Harta - Ocupă restul spațiului */}
-        <div className="flex-1 h-full relative">
-          {/* Folosim filteredListings pentru a afișa pe hartă doar ce este filtrat */}
+        {/* B. Harta (Dreapta) */}
+        <div className="flex-1 relative bg-gray-100 z-1">
           <MapView
-            listings={filteredListings}
+            listings={listings}
             activeId={activeId}
             setActiveId={setActiveId}
           />
+
+          {/* Indicator Loading pe Hartă */}
+          {loading && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white px-4 py-2 rounded-full shadow-lg z-1000 flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-sm font-bold text-blue-600">Se actualizează...</span>
+            </div>
+          )}
         </div>
+
       </div>
     </main>
   );
