@@ -1,11 +1,12 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
 
 # Schema de baza
 class ListingBase(BaseModel):
     title: str
-    price_eur: float
+    price: float = Field(..., alias="price_eur")
+    # price_eur: float
     sqm: float
     rooms: Optional[int] = None
     floor: Optional[int] = None
@@ -29,10 +30,11 @@ class ListingOut(ListingBase):
     compartmentation: Optional[str] = None
     
     # Acestea vor fi populate automat de proprietatile @property din models.py
-    lat: Optional[float] = None
-    lng: Optional[float] = None
+    latitude: Optional[float] = Field(None, alias="lat")
+    longitude: Optional[float] = Field(None, alias="lng")
     
     updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True # Permite conversia automata din SQLAlchemy
+        populate_by_name = True # Permite folosirea alias-urilor la output

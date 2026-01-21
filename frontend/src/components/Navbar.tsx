@@ -1,12 +1,40 @@
 'use client';
 import Link from 'next/link';
-import { User, Menu } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
+import { User, Menu, LogOut } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { createClient } from '../../utils/supabase/client';
+import { useEffect, useState } from 'react';
+import { Listing } from '@/types';
+
 
 
 export default function Navbar() {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const currentType = searchParams.get('type') || 'SALE';
+    const supabase = createClient();
+    const [user, setUser] = useState<any>(null);
+
+    useEffect(() => {
+        const getUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            setUser(user);
+        };
+        getUser();
+
+        // Ascultăm schimbările de auth (login/logout în alte tab-uri)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null);
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
+        router.refresh();
+        setUser(null);
+    };
 
     const isActive = (type: string) => {
         return currentType === type
@@ -14,16 +42,18 @@ export default function Navbar() {
             : "text-slate-900 font-medium hover:text-blue-600 transition-colors";
     };
 
+
+
     return (
         <header className="w-full bg-white border-b border-gray-100 py-4 px-6 flex items-center justify-between relative z-50">
 
-            {/* STANGA: Navigație Principală (Desktop) */}
+            {/* STANGA: Navigatie Principala (Desktop) */}
             <nav className="hidden md:flex items-center gap-8">
                 <Link href="/?type=SALE" className={`py-2 ${isActive('SALE')}`}>
-                    Cumpără
+                    Cumpara
                 </Link>
                 <Link href="/?type=RENT" className={`py-2 ${isActive('RENT')}`}>
-                    Închiriază
+                    Închiriaza
                 </Link>
                 <Link href="#" className="text-sm font-medium text-slate-900 hover:text-blue-600 transition-colors">
                     Vinde
@@ -32,7 +62,7 @@ export default function Navbar() {
                     Credite
                 </Link>
                 <Link href="#" className="text-sm font-medium text-slate-900 hover:text-blue-600 transition-colors">
-                    Agenți
+                    Agenti
                 </Link>
             </nav>
 
@@ -43,10 +73,10 @@ export default function Navbar() {
                 </button>
             </div>
 
-            {/* CENTRU: Logo (Poziționat Absolut pentru a fi perfect centrat) */}
+            {/* CENTRU: Logo (Pozitionat Absolut pentru a fi perfect centrat) */}
             <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
                 <Link href="/" className="flex items-center gap-2 group">
-                    {/* Un icon simplu de casă pentru logo */}
+                    {/* Un icon simplu de casa pentru logo */}
                     <div className="bg-blue-600 p-1.5 rounded-lg transform group-hover:rotate-12 transition-transform">
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -58,7 +88,7 @@ export default function Navbar() {
                             <path d="M12 5.432l8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 01-.75-.75v-4.5a.75.75 0 00-.75-.75h-3a.75.75 0 00-.75.75V21a.75.75 0 01-.75.75H5.625a1.875 1.875 0 01-1.875-1.875v-6.198a2.29 2.29 0 00.091-.086L12 5.43z" />
                         </svg>
                     </div>
-                    {/* Aici punem numele (Am pus 'Zidda' ca exemplu, îl poți schimba) */}
+                    {/* Aici punem numele (Am pus 'Zidda' ca exemplu, îl poti schimba) */}
                     <span className="text-2xl font-black text-blue-700 tracking-tighter hidden sm:block">
                         NidusHomes
                     </span>
@@ -69,24 +99,34 @@ export default function Navbar() {
             <div className="flex items-center gap-6">
                 <nav className="hidden md:flex items-center gap-6">
                     <Link href="#" className="text-sm font-medium text-slate-900 hover:text-blue-600 transition-colors">
-                        Administrare
-                    </Link>
-                    <Link href="#" className="text-sm font-medium text-slate-900 hover:text-blue-600 transition-colors">
                         Publicitate
-                    </Link>
-                    <Link href="#" className="text-sm font-medium text-slate-900 hover:text-blue-600 transition-colors">
-                        Ajutor
                     </Link>
                 </nav>
 
-                {/* Avatar Utilizator (Cerculețul din dreapta) */}
-                <button className="flex items-center justify-center w-9 h-9 rounded-full bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors relative">
-                    <span className="font-bold text-xs">IS</span>
-                    {/* Bulină de notificare (opțional) */}
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] flex items-center justify-center rounded-full border-2 border-white font-bold">
-                        2
-                    </span>
-                </button>
+                {user ? (
+                    // CAND E LOGAT
+                    <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium hidden md:block">
+                            {user.email?.split('@')[0]}
+                        </span>
+                        <button
+                            onClick={handleLogout}
+                            className="flex items-center justify-center w-9 h-9 rounded-full bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 transition-colors"
+                            title="Ieșire din cont"
+                        >
+                            <LogOut size={16} />
+                        </button>
+                    </div>
+                ) : (
+                    // CAND NU E LOGAT
+                    <Link
+                        href="/login"
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-full font-bold text-sm hover:bg-blue-700 transition-all shadow-sm"
+                    >
+                        <User size={18} />
+                        <span className="hidden md:inline">Contul Meu</span>
+                    </Link>
+                )}
             </div>
         </header>
     );

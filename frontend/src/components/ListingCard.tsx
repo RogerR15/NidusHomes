@@ -1,6 +1,7 @@
 'use client';
-import { Home, Maximize2, MapPin } from 'lucide-react';
+import { Home, Maximize2, MapPin, Heart } from 'lucide-react';
 import { Listing } from '@/types';
+import { useState } from 'react';
 
 export default function ListingCard({ listing }: { listing: Listing }) {
     // Folosim price_eur dacă price lipsește (pentru siguranță)
@@ -22,6 +23,16 @@ export default function ListingCard({ listing }: { listing: Listing }) {
 
     const displayImageUrl = getImageUrl(listing);
 
+    const [isFavorite, setIsFavorite] = useState(false);
+
+    const toggleFavorite = (e: React.MouseEvent) => {
+        e.stopPropagation(); // Ca să nu deschidă anunțul când dai click pe inimă
+        e.preventDefault();
+        setIsFavorite(!isFavorite);
+        // Aici vom lega API-ul mai târziu
+        console.log("Toggle favorite:", listing.id);
+    };
+
     return (
         <div className="group border rounded-xl overflow-hidden shadow-sm hover:shadow-xl bg-white cursor-pointer transition-all duration-300 border-gray-100 hover:border-blue-400">
 
@@ -42,6 +53,17 @@ export default function ListingCard({ listing }: { listing: Listing }) {
                         <Home size={40} strokeWidth={1} />
                     </div>
                 )}
+
+                <button
+                    onClick={toggleFavorite}
+                    className="absolute top-2 right-2 p-2 rounded-full bg-white/80 hover:bg-white backdrop-blur-sm transition-all shadow-sm z-10"
+                >
+                    <Heart
+                        size={18}
+                        className={`transition-colors ${isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-600 hover:text-red-500'}`}
+                    />
+                </button>
+
                 {/* Badge pentru sursă (Opțional) */}
                 <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-bold shadow-sm uppercase">
                     Iași

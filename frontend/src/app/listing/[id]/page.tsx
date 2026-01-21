@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import axios from 'axios';
 import Navbar from '@/components/Navbar';
-import { Listing } from '@/types';
+import DescriptionViewer from '@/components/DescriptionViewer';
 import dynamic from 'next/dynamic';
 
 // Importăm harta dinamic (fără SSR) pentru a evita erorile Leaflet
@@ -110,10 +110,18 @@ export default function ListingPage() {
 
                         {/* Descriere */}
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
-                            <h2 className="text-xl font-bold mb-4">Descriere Proprietate</h2>
-                            <div className="prose prose-slate max-w-none text-gray-600 whitespace-pre-line">
-                                {listing.description || "Nu există o descriere detaliată pentru acest anunț."}
+                            <div className="flex items-center gap-2 mb-6">
+                                <div className="bg-blue-100 p-2 rounded-lg">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+                                    </svg>
+                                </div>
+                                <h2 className="text-xl font-bold text-gray-900">Descriere Proprietate</h2>
                             </div>
+
+
+                            <DescriptionViewer text={listing.description || "Nu există o descriere detaliată."} />
+
                         </div>
                     </div>
 
