@@ -59,7 +59,7 @@ export default function FavoritesPage() {
                     <div className="text-center py-20 text-gray-500">Se încarcă favoritele...</div>
                 ) : listings.length === 0 ? (
                     <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-gray-100">
-                        <div className="text-6xl mb-4">💔</div>
+
                         <h3 className="text-xl font-bold text-gray-900 mb-2">Nu ai niciun anunț salvat</h3>
                         <p className="text-gray-500 mb-6">Explorează piața și salvează cele mai bune oferte.</p>
                         <Link

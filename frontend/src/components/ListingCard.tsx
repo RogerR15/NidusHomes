@@ -41,7 +41,7 @@ export default function ListingCard({ listing }: { listing: Listing }) {
                 .select('*')
                 .eq('user_id', user.id)
                 .eq('listing_id', listing.id)
-                .single();
+                .maybeSingle()
 
             if (data) setIsFavorite(true);
         };

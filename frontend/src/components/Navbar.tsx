@@ -1,21 +1,42 @@
 'use client';
 import Link from 'next/link';
-import { User, Menu, LogOut, Heart } from 'lucide-react';
-import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { createClient } from '../../utils/supabase/client';
+import {
+    Menu,
+    LogOut,
+    Heart,
+    Settings,
+    User,
+    ChevronDown,
+    LayoutDashboard,
+    Sparkles
+} from 'lucide-react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 
 
-
+// SHADCN IMPORTS
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import { createClient } from '../../utils/supabase/client';
 
 export default function Navbar() {
     const searchParams = useSearchParams();
     const router = useRouter();
+    const currentPath = usePathname();
     const currentType = searchParams.get('type') || 'SALE';
     const supabase = createClient();
-    const [user, setUser] = useState<any>(null);
 
-    const currentPath = usePathname();
+    const [user, setUser] = useState<any>(null);
 
     useEffect(() => {
         const getUser = async () => {
@@ -24,7 +45,6 @@ export default function Navbar() {
         };
         getUser();
 
-        // Ascultăm schimbările de auth (login/logout în alte tab-uri)
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setUser(session?.user ?? null);
         });
@@ -34,6 +54,7 @@ export default function Navbar() {
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
+        router.push('/login');
         router.refresh();
         setUser(null);
     };
@@ -41,101 +62,138 @@ export default function Navbar() {
     const isActive = (type: string) => {
         return currentType === type
             ? "text-blue-600 font-bold border-b-2 border-blue-600"
-            : "text-slate-900 font-medium hover:text-blue-600 transition-colors";
+            : "text-slate-600 font-medium hover:text-blue-600 transition-colors";
     };
 
-
+    // Helper pentru inițiale (cu gradient background)
+    const getInitials = () => {
+        const name = user?.user_metadata?.full_name || user?.email || 'U';
+        return name.slice(0, 1).toUpperCase();
+    }
 
     return (
-        <header className="w-full bg-white border-b border-gray-100 py-4 px-6 flex items-center justify-between relative z-50">
+        <header className="sticky top-0 w-full bg-white/80 backdrop-blur-md border-b border-gray-100 py-3 px-4 md:px-8 flex items-center justify-between z-50 transition-all">
 
-            {/* STANGA: Navigatie Principala (Desktop) */}
+            {/* STANGA: Navigație Principală */}
             <nav className="hidden md:flex items-center gap-8">
-                <Link href="/?type=SALE" className={`py-2 ${isActive('SALE')}`}>
-                    Cumpara
-                </Link>
-                <Link href="/?type=RENT" className={`py-2 ${isActive('RENT')}`}>
-                    Închiriaza
-                </Link>
-                <Link href="#" className="text-sm font-medium text-slate-900 hover:text-blue-600 transition-colors">
-                    Vinde
-                </Link>
-                <Link href="#" className="text-sm font-medium text-slate-900 hover:text-blue-600 transition-colors">
-                    Credite
-                </Link>
-                <Link href="#" className="text-sm font-medium text-slate-900 hover:text-blue-600 transition-colors">
-                    Agenti
-                </Link>
+                <Link href="/?type=SALE" className={`py-2 text-sm ${isActive('SALE')}`}>Cumpără</Link>
+                <Link href="/?type=RENT" className={`py-2 text-sm ${isActive('RENT')}`}>Închiriază</Link>
+                <Link href="#" className="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors">Vinde</Link>
             </nav>
 
-            {/* STANGA: Meniu Hamburger (Mobil) */}
+            {/* MOBIL: Meniu Hamburger */}
             <div className="md:hidden">
-                <button className="p-2 text-slate-600">
+                <Button variant="ghost" size="icon" className="text-slate-700">
                     <Menu size={24} />
-                </button>
+                </Button>
             </div>
 
-            {/* CENTRU: Logo (Pozitionat Absolut pentru a fi perfect centrat) */}
+            {/* CENTRU: Logo */}
             <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
                 <Link href="/" className="flex items-center gap-2 group">
-                    {/* Un icon simplu de casa pentru logo */}
-                    <div className="bg-blue-600 p-1.5 rounded-lg transform group-hover:rotate-12 transition-transform">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="white"
-                            className="w-5 h-5"
-                        >
-                            <path d="M11.47 3.84a.75.75 0 011.06 0l8.69 8.69a.75.75 0 101.06-1.06l-8.689-8.69a2.25 2.25 0 00-3.182 0l-8.69 8.69a.75.75 0 001.061 1.06l8.69-8.69z" />
-                            <path d="M12 5.432l8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 01-.75-.75v-4.5a.75.75 0 00-.75-.75h-3a.75.75 0 00-.75.75V21a.75.75 0 01-.75.75H5.625a1.875 1.875 0 01-1.875-1.875v-6.198a2.29 2.29 0 00.091-.086L12 5.43z" />
-                        </svg>
-                    </div>
-                    {/* Aici punem numele (Am pus 'Zidda' ca exemplu, îl poti schimba) */}
-                    <span className="text-2xl font-black text-blue-700 tracking-tighter hidden sm:block">
-                        NidusHomes
+                    {/* <div className="relative w-10 h-10 transform transition-transform duration-300">
+                        <Image
+                            src="/logo.png"       
+                            alt="NidusHomes Logo"
+                            fill
+                            sizes="40px"         
+                            className="object-contain" 
+                            priority              
+                        />
+                    </div> */}
+                    <span className="text-3xl font-black text-slate-900 tracking-tighter hidden sm:block">
+                        Nidus<span className="text-blue-700">Homes</span>
                     </span>
                 </Link>
             </div>
 
-            {/* DREAPTA: Meniu Secundar & Profil */}
-            <div className="flex items-center gap-6">
-                <nav className="hidden md:flex items-center gap-6">
-                    <Link href="#" className="text-sm font-medium text-slate-900 hover:text-blue-600 transition-colors">
-                        Publicitate
-                    </Link>
-                </nav>
+            {/* DREAPTA: Profil & Dropdown */}
+            <div className="flex items-center gap-4">
 
                 {user ? (
-                    // CAND E LOGAT
-                    <div className="flex items-center gap-3">
-                        <Link
-                            href="/favorites"
-                            className="flex items-center gap-2 text-slate-600 hover:text-red-500 transition-colors font-medium text-sm"
-                        >
-                            <Heart size={20} className={currentPath === '/favorites' ? 'fill-red-500 text-red-500' : ''} />
-                            <span className="hidden md:inline">Favorite</span>
-                        </Link>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            {/* Butonul "Pastilă" */}
+                            <Button
+                                variant="secondary"
+                                className="relative bg-neutral-50 h-12 rounded-3xl pl-1 pr-4 gap-2 hover:bg-gray-100 hover:border-gray-300 transition-all group"
+                            >
+                                <Avatar className="h-10 w-10 transition-transform group-hover:scale-105">
+                                    <AvatarImage src={user.user_metadata?.avatar_url} alt="Profile" className="object-cover" />
+                                    <AvatarFallback className="bg-linear-to-br from-blue-500 to-indigo-600 text-white font-bold text-xs">
+                                        {getInitials()}
+                                    </AvatarFallback>
+                                </Avatar>
 
-                        <span className="text-sm font-medium hidden md:block">
-                            {user.email?.split('@')[0]}
-                        </span>
-                        <button
-                            onClick={handleLogout}
-                            className="flex items-center justify-center w-9 h-9 rounded-full bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 transition-colors"
-                            title="Ieșire din cont"
-                        >
-                            <LogOut size={16} />
-                        </button>
-                    </div>
+                                <div className="hidden md:flex flex-col items-start text-xs">
+                                    <span className="font-semibold text-slate-800 max-w-20 truncate ">
+                                        {user.user_metadata?.full_name || 'Utilizator'}
+                                    </span>
+                                </div>
+                                <ChevronDown size={14} className="text-gray-400 group-data-[state=open]:rotate-180 transition-transform duration-300" />
+                            </Button>
+                        </DropdownMenuTrigger>
+
+                        <DropdownMenuContent className="w-60 p-2 mt-2" align="end" forceMount>
+                            {/* Header User */}
+                            <div className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg mb-2">
+                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold overflow-hidden">
+                                    {user.user_metadata?.avatar_url ? (
+                                        <img src={user.user_metadata.avatar_url} className="w-full h-full object-cover" />
+                                    ) : getInitials()}
+                                </div>
+                                <div className="overflow-hidden">
+                                    <p className="text-sm font-bold text-slate-900 truncate">{user.user_metadata?.full_name || 'Salut!'}</p>
+                                    <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                                </div>
+                            </div>
+
+                            <DropdownMenuGroup>
+                                <DropdownMenuItem asChild>
+                                    <Link href="/account" className="cursor-pointer flex items-center gap-2 py-2.5 rounded-md focus:bg-blue-50 focus:text-blue-700">
+                                        <Settings className="h-4 w-4 text-slate-500" />
+                                        <span className="font-medium">Setări Cont</span>
+                                    </Link>
+                                </DropdownMenuItem>
+
+                                <DropdownMenuItem asChild>
+                                    <Link href="/favorites" className="cursor-pointer flex items-center gap-2 py-2.5 rounded-md focus:bg-blue-50 focus:text-blue-700">
+                                        <Heart className="h-4 w-4 text-slate-500" />
+                                        <span className="font-medium">Favorite</span>
+                                    </Link>
+                                </DropdownMenuItem>
+
+                                {/* Opțiune Future-Proof */}
+                                <DropdownMenuItem disabled className="opacity-50 flex items-center gap-2 py-2.5">
+                                    <LayoutDashboard className="h-4 w-4" />
+                                    <span>Anunțurile mele</span>
+                                </DropdownMenuItem>
+                            </DropdownMenuGroup>
+
+                            <DropdownMenuSeparator className="my-2" />
+
+                            <DropdownMenuItem
+                                onClick={handleLogout}
+                                className="text-red-600 focus:text-red-700 focus:bg-red-50 cursor-pointer flex items-center gap-2 py-2.5 font-medium"
+                            >
+                                <LogOut className="h-4 w-4" />
+                                <span>Deconectare</span>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 ) : (
-                    // CAND NU E LOGAT
-                    <Link
-                        href="/login"
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-full font-bold text-sm hover:bg-blue-700 transition-all shadow-sm"
-                    >
-                        <User size={18} />
-                        <span className="hidden md:inline">Contul Meu</span>
-                    </Link>
+                    <div className="flex items-center gap-2">
+                        <Link href="/login">
+                            <Button variant="ghost" className="font-medium text-slate-600 hover:text-blue-600 hover:bg-blue-50">
+                                Autentificare
+                            </Button>
+                        </Link>
+                        <Link href="/signup">
+                            <Button className="rounded-full font-bold bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-200 transition-all hover:-translate-y-0.5">
+                                <User className="mr-2 h-4 w-4" /> Înregistrare
+                            </Button>
+                        </Link>
+                    </div>
                 )}
             </div>
         </header>
