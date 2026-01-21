@@ -26,7 +26,7 @@ def clean_image_url(url):
     return url
 
 def fetch_html(url):
-    """Descarcă pagina cu requests rapid."""
+    """Descarca pagina cu requests rapid."""
     if not url or not isinstance(url, str) or not url.startswith("http"):
         return "INVALID_URL"
 
@@ -42,7 +42,7 @@ def fetch_html(url):
         elif response.status_code == 404:
             return "404"
     except Exception as e:
-        print(f"   Eroare rețea ({str(e)[:50]}...)")
+        print(f"   Eroare retea ({str(e)[:50]}...)")
     return None
 
 def parse_details(html, platform):
@@ -51,10 +51,10 @@ def parse_details(html, platform):
 
     soup = BeautifulSoup(html, 'html.parser')
     
-    # Caută JSON-ul __NEXT_DATA__
+    # Cauta JSON-ul __NEXT_DATA__
     script = soup.find("script", id="__NEXT_DATA__")
     
-    # Fallback OLX HTML (dacă JSON lipsește)
+    # Fallback OLX HTML (daca JSON lipseSte)
     if not script:
         if platform == "OLX":
             try:
@@ -109,13 +109,13 @@ def parse_details(html, platform):
 
 def run_enricher_batch():
     db = get_db_session()
-    print("🚀 PORNIRE ENRICHER (Mod Batch & Cleaning)...")
+    print("PORNIRE ENRICHER")
     
-    # Limităm la 200 pentru o rulare
+    # Limitam la 200 pentru o rulare
     limit = 200
     
     try:
-        # Luăm anunțurile active sortate după actualizare (cele mai recente primele)
+        # Luam anunturile active sortate dupa actualizare (cele mai recente primele)
         candidates = db.query(models.Listing).filter(
             models.Listing.status == "ACTIVE"
         ).order_by(models.Listing.updated_at.desc()).limit(300).all()
@@ -125,12 +125,12 @@ def run_enricher_batch():
         for item in candidates:
             # 1. VERIFICARE URL INVALID
             if not item.listing_url or len(item.listing_url) < 10 or "http" not in item.listing_url:
-                print(f"🗑️ Șterg anunț cu URL invalid (ID: {item.id})")
+                print(f"Sterg anunt cu URL invalid (ID: {item.id})")
                 db.delete(item)
                 db.commit()
                 continue
 
-            # 2. Criterii de actualizare (descriere scurtă sau lipsă poze)
+            # 2. Criterii de actualizare (descriere scurta sau lipsa poze)
             desc_len = len(item.description) if item.description else 0
             has_images = item.images and len(item.images) > 0
             
@@ -140,10 +140,10 @@ def run_enricher_batch():
                     break
         
         if not listings_to_process:
-            print("✅ Toate anunțurile recente sunt complete.")
+            print("Toate anunturile recente sunt complete.")
             return
 
-        print(f"⚡ Am găsit {len(listings_to_process)} anunțuri de completat.")
+        print(f"⚡ Am gasit {len(listings_to_process)} anunturi de completat.")
 
         processed_count = 0
         for item in listings_to_process:
@@ -152,20 +152,20 @@ def run_enricher_batch():
             html = fetch_html(item.listing_url)
             
             if html == "INVALID_URL":
-                print("      -> URL Invalid. Șterg.")
+                print("URL Invalid. Sterg.")
                 db.delete(item)
                 db.commit()
                 continue
 
             if html == "404":
-                print("      -> 404 (Șters de pe site). Marchez INACTIVE.")
+                print("(Error: 404 - Sters de pe site). Marchez INACTIVE.")
                 item.status = "INACTIVE"
                 db.commit()
                 processed_count += 1
                 continue
             
             if not html:
-                print("      -> Skip (eroare descărcare)")
+                print("Skip (eroare descarcare)")
                 continue
 
             details = parse_details(html, item.source_platform)
@@ -187,24 +187,24 @@ def run_enricher_batch():
                     updated = True
                     print(f"      -> Imagini OK ({len(details['images'])}).")
 
-            # Update GPS (opțional)
+            # Update GPS (optional)
             if details["lat"] and (not item.geom):
                  pass
 
-            # Bump updated_at ca să nu îl mai procesăm imediat
+            # Bump updated_at ca sa nu il mai procesam imediat
             item.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
             db.commit()
             processed_count += 1
             
             if not updated:
-                print("      -> Nu am găsit date noi (dar URL-ul e valid).")
+                print("Nu am gasit date noi (dar URL-ul e valid).")
 
     except Exception as e:
-        print(f"Eroare critică: {e}")
+        print(f"Eroare critica: {e}")
         db.rollback()
     finally:
         db.close()
-        print("🏁 ENRICHER FINALIZAT.")
+        print("ENRICHER FINALIZAT.")
 
 if __name__ == "__main__":
     run_enricher_batch()

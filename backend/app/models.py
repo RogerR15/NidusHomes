@@ -1,9 +1,10 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from geoalchemy2 import Geometry # Pentru PostGIS
-from .database import Base
+from geoalchemy2 import Geometry
+from geoalchemy2.shape import to_shape 
 from sqlalchemy.dialects.postgresql import ARRAY
+from .database import Base
 
 class Listing(Base):
     __tablename__ = "listings"
@@ -16,48 +17,51 @@ class Listing(Base):
     price_eur = Column(Float, nullable=False)
     sqm = Column(Float, nullable=False)
     rooms = Column(Integer)
-    floor = Column(Integer) # 0 pentru parter
+    floor = Column(Integer)
     year_built = Column(Integer, nullable=True)
-    compartmentation = Column(String, nullable=True) # Ex: Decomandat
+    compartmentation = Column(String, nullable=True)
 
     # Localizare
     neighborhood = Column(String, index=True)
     address = Column(String)
 
-    # imagine
-    image_url = Column(String, nullable=True)
-    images = Column(ARRAY(String), nullable=True)
-
-    #Link original
+    # Media & Linkuri
+    image_url = Column(String, nullable=True) # Thumbnail
+    images = Column(ARRAY(String), nullable=True) # Galerie foto
     listing_url = Column(String, unique=True)
 
-    # Tip tranzactie (implicit "SALE")
+    # Tip tranzactie
     transaction_type = Column(String, default="SALE")
 
-    # PostGIS: Punct geografic (Latitudine/Longitudine)
-    # 4326 este codul standard pentru coordonate GPS (WGS 84)
+    # PostGIS
     geom = Column(Geometry(geometry_type='POINT', srid=4326))
 
-    # Metadate Ingestie
-    #source_url = Column(String, unique=True) # Prevenim duplicarea URL-ului
-    source_platform = Column(String) # Ex: "OLX", "Storia"
+    # Metadate
+    source_platform = Column(String)
     is_claimed = Column(Boolean, default=False)
     status = Column(String, default="ACTIVE")
-    last_seen_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # Timestamp pentru ultima verificare a anuntului
+    last_seen_at = Column(DateTime(timezone=True), server_default=func.now())
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    # Relații
-    price_history = relationship("PriceHistory", back_populates="listing")
+    # HELPERE PENTRU PYDANTIC 
+    @property
+    def lat(self):
+        try:
+            if self.geom:
+                # Extrage Y (Latitudine) din obiectul geometric
+                return to_shape(self.geom).y
+        except: pass
+        return None
 
-class PriceHistory(Base):
-    __tablename__ = "price_history"
-
-    id = Column(Integer, primary_key=True)
-    listing_id = Column(Integer, ForeignKey("listings.id"))
-    price_eur = Column(Float, nullable=False)
-    recorded_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    # Relații
-    listing = relationship("Listing", back_populates="price_history")
+    @property
+    def lng(self):
+        try:
+            if self.geom:
+                # Extrage X (Longitudine)
+                return to_shape(self.geom).x
+        except: pass
+        return None

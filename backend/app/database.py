@@ -4,18 +4,16 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 
-# URL-ul tău de conexiune
-
+# URL
 load_dotenv()
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Este fundamentul pentru toate modelele tale
 Base = declarative_base()
 
-# Dependency pentru FastAPI
+# Dependency FastAPI
 def get_db():
     db = SessionLocal()
     try:
