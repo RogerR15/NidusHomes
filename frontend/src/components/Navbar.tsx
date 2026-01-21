@@ -1,10 +1,10 @@
 'use client';
 import Link from 'next/link';
-import { User, Menu, LogOut } from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { User, Menu, LogOut, Heart } from 'lucide-react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { createClient } from '../../utils/supabase/client';
 import { useEffect, useState } from 'react';
-import { Listing } from '@/types';
+
 
 
 
@@ -14,6 +14,8 @@ export default function Navbar() {
     const currentType = searchParams.get('type') || 'SALE';
     const supabase = createClient();
     const [user, setUser] = useState<any>(null);
+
+    const currentPath = usePathname();
 
     useEffect(() => {
         const getUser = async () => {
@@ -106,6 +108,14 @@ export default function Navbar() {
                 {user ? (
                     // CAND E LOGAT
                     <div className="flex items-center gap-3">
+                        <Link
+                            href="/favorites"
+                            className="flex items-center gap-2 text-slate-600 hover:text-red-500 transition-colors font-medium text-sm"
+                        >
+                            <Heart size={20} className={currentPath === '/favorites' ? 'fill-red-500 text-red-500' : ''} />
+                            <span className="hidden md:inline">Favorite</span>
+                        </Link>
+
                         <span className="text-sm font-medium hidden md:block">
                             {user.email?.split('@')[0]}
                         </span>
