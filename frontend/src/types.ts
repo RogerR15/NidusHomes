@@ -7,10 +7,12 @@ export interface Listing {
     neighborhood: string;
     source_platform: string;
     image_url?: string;
+    images: string[];
     listing_url?: string;
     transaction_type: 'SALE' | 'RENT';
     latitude?: number;
     longitude?: number;
     rooms?: number;
     floor?: number;
+    created_at: string;
 }

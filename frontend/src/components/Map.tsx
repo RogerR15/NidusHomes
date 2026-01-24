@@ -10,12 +10,12 @@ function MapController({ activeListing, clusterGroupRef }: { activeListing: any,
     const map = useMap();
 
     useEffect(() => {
-        if (activeListing) { // Verificăm doar dacă există anunțul
-            // VALIDARE CRITICĂ: Convertim și verificăm coordonatele înainte de orice acțiune
+        if (activeListing) { // Verificam doar daca exista anuntul
+            // VALIDARE CRITICa: Convertim si verificam coordonatele inainte de orice actiune
             const lat = Number(activeListing.latitude ?? activeListing.lat);
             const lng = Number(activeListing.longitude ?? activeListing.lng ?? activeListing.lon);
 
-            // Dacă coordonatele sunt invalide, NU facem nimic (evităm crash-ul)
+            // Daca coordonatele sunt invalide, NU facem nimic (evitam crash-ul)
             if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) {
                 console.warn("MapController: Coordonate invalide pentru listing", activeListing.id);
                 return;
@@ -34,7 +34,7 @@ function MapController({ activeListing, clusterGroupRef }: { activeListing: any,
                         }, 300);
                     });
                 } else {
-                    // Folosim variabilele verificate (lat, lng), nu proprietățile brute
+                    // Folosim variabilele verificate (lat, lng), nu proprietatile brute
                     map.flyTo([lat, lng], 18);
                 }
             }
@@ -147,9 +147,9 @@ export default function MapView({ listings, activeId, setActiveId }: any) {
                             >
                                 <Popup>
                                     <div className="w-48 overflow-hidden rounded-lg">
-                                        {/* Partea de Imagine (deja existentă) */}
+                                        {/* Partea de Imagine (deja existenta) */}
                                         {popupImageUrl && (
-                                            // Poți face și imaginea clickabilă înfășurând-o în Link
+                                            // Poti face si imaginea clickabila infasurând-o in Link
                                             <Link href={`/listing/${l.id}`}>
                                                 <img
                                                     src={popupImageUrl}

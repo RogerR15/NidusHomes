@@ -36,51 +36,50 @@ export default function AccountPage() {
         getUser();
     }, [router]);
 
-    // --- FUNCȚIA DE UPLOAD MODIFICATĂ ---
+    //FUNCTIA DE UPLOAD 
     const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         try {
             setSaving(true);
             setMessage(null);
 
             if (!event.target.files || event.target.files.length === 0) {
-                throw new Error('Selectează o imagine.');
+                throw new Error('Selecteaza o imagine.');
             }
 
             const originalFile = event.target.files[0];
 
-            // 1. CONFIGURARE COMPRESIE
+            // CONFIGURARE COMPRESIE
             const options = {
-                maxSizeMB: 0.2,          // Maxim 200 KB (foarte puțin spațiu!)
-                maxWidthOrHeight: 1080,  // Redimensionăm la HD (nu ne trebuie 4K pt avatar)
-                useWebWorker: true,      // Folosește procesare paralelă pentru viteză
-                fileType: 'image/jpeg'   // Convertim totul în JPEG (ocupă mai puțin decât PNG)
+                maxSizeMB: 0.2,          // Maxim 200 KB (foarte putin spatiu!)
+                maxWidthOrHeight: 1080,  // Redimensionam la HD (nu ne trebuie 4K pt avatar)
+                useWebWorker: true,      // Foloseste procesare paralela pentru viteza
+                fileType: 'image/jpeg'   // Convertim totul in JPEG (ocupa mai putin decat PNG)
             };
 
-            // 2. COMPRIMĂM IMAGINEA
-            // (Asta se întâmplă în browser, durează sub o secundă)
+            // COMPRIMAM IMAGINEA
             const compressedFile = await imageCompression(originalFile, options);
 
-            // Debug: Poți vedea în consolă cât ai economisit
+            // Debug: Poti vedea in consola cat ai economisit
             console.log(`Original: ${originalFile.size / 1024 / 1024} MB`);
             console.log(`Comprimat: ${compressedFile.size / 1024 / 1024} MB`);
 
-            const fileExt = 'jpg'; // Acum știm sigur că e jpg
+            const fileExt = 'jpg'; // stim sigur ca e jpg
             const fileName = `${user.id}-${Date.now()}.${fileExt}`;
             const filePath = `${fileName}`;
 
-            // 3. UPLOAD (Trimitem fișierul MIC, nu cel mare)
+            // UPLOAD IMAGINE
             const { error: uploadError } = await supabase.storage
                 .from('avatars')
-                .upload(filePath, compressedFile); // <-- Aici trimitem compressedFile
+                .upload(filePath, compressedFile); //trimitem compressedFile
 
             if (uploadError) throw uploadError;
 
-            // 4. Obține URL-ul public
+            // Obtine URL-ul public
             const { data: { publicUrl } } = supabase.storage
                 .from('avatars')
                 .getPublicUrl(filePath);
 
-            // 5. Actualizează profilul
+            // Actualizeaza profilul
             const { error: updateError } = await supabase.auth.updateUser({
                 data: { avatar_url: publicUrl }
             });
@@ -88,12 +87,12 @@ export default function AccountPage() {
             if (updateError) throw updateError;
 
             setAvatarUrl(publicUrl);
-            toast.success("Fotografia a fost actualizată!")
+            toast.success("Fotografia a fost actualizata!")
             router.refresh();
 
         } catch (error: any) {
             console.error(error);
-            toast.error(error.message || "A apărut o problemă.")
+            toast.error(error.message || "A aparut o problema.")
         } finally {
             setSaving(false);
         }
@@ -120,7 +119,7 @@ export default function AccountPage() {
         }
     };
 
-    if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Se încarcă...</div>;
+    if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Se incarca...</div>;
 
     const joinDate = user?.created_at
         ? new Date(user.created_at).toLocaleDateString('ro-RO', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -131,7 +130,7 @@ export default function AccountPage() {
             <Navbar />
 
             <main className="max-w-4xl mx-auto px-4 py-10">
-                <h1 className="text-2xl font-bold text-gray-900 mb-6">Setări Cont</h1>
+                <h1 className="text-2xl font-bold text-gray-900 mb-6">Setari Cont</h1>
 
                 {message && (
                     <div className={`mb-6 p-4 rounded-lg ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
@@ -159,7 +158,7 @@ export default function AccountPage() {
                                     disabled={saving}
                                     onClick={() => fileInputRef.current?.click()}
                                     className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition shadow-sm border-2 border-white"
-                                    title="Schimbă poza"
+                                    title="Schimba poza"
                                 >
                                     {saving ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
                                 </button>
@@ -214,7 +213,7 @@ export default function AccountPage() {
                                         className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition-all disabled:opacity-50"
                                     >
                                         {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-                                        Salvează Modificările
+                                        Salveaza Modificarile
                                     </button>
                                 </div>
                             </div>

@@ -19,7 +19,7 @@ def get_listings(
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
     min_sqm: Optional[float] = None,
-    rooms: Optional[List[int]] = Query(None, description="Ex: 1, 2, 3"),
+    rooms: Optional[int] = Query(None, description="Numar minim camere (ex: 2 inseamna 2+)"),
     neighborhood: Optional[str] = None,
     limit: int = 100,
     offset: int = 0
@@ -46,8 +46,7 @@ def get_listings(
         query = query.filter(models.Listing.sqm >= min_sqm)
 
     if rooms:
-        # Filtru pentru camere (ex: vreau și cu 2 și cu 3 camere)
-        query = query.filter(models.Listing.rooms.in_(rooms))
+        query = query.filter(models.Listing.rooms >= rooms)
 
     if neighborhood:
         # Căutare parțială (insensitive case)

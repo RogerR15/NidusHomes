@@ -8,11 +8,10 @@ import {
     User,
     ChevronDown,
     LayoutDashboard,
-    Sparkles
+    Layout,
 } from 'lucide-react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 
 
 // SHADCN IMPORTS
@@ -21,7 +20,6 @@ import {
     DropdownMenuContent,
     DropdownMenuGroup,
     DropdownMenuItem,
-    DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -32,7 +30,6 @@ import { createClient } from '../../utils/supabase/client';
 export default function Navbar() {
     const searchParams = useSearchParams();
     const router = useRouter();
-    const currentPath = usePathname();
     const currentType = searchParams.get('type') || 'SALE';
     const supabase = createClient();
 
@@ -65,7 +62,7 @@ export default function Navbar() {
             : "text-slate-600 font-medium hover:text-blue-600 transition-colors";
     };
 
-    // Helper pentru inițiale (cu gradient background)
+    // Helper pentru initiale (cu gradient background)
     const getInitials = () => {
         const name = user?.user_metadata?.full_name || user?.email || 'U';
         return name.slice(0, 1).toUpperCase();
@@ -74,10 +71,10 @@ export default function Navbar() {
     return (
         <header className="sticky top-0 w-full bg-white/80 backdrop-blur-md border-b border-gray-100 py-3 px-4 md:px-8 flex items-center justify-between z-50 transition-all">
 
-            {/* STANGA: Navigație Principală */}
+            {/* STANGA: Navigatie Principala */}
             <nav className="hidden md:flex items-center gap-8">
-                <Link href="/?type=SALE" className={`py-2 text-sm ${isActive('SALE')}`}>Cumpără</Link>
-                <Link href="/?type=RENT" className={`py-2 text-sm ${isActive('RENT')}`}>Închiriază</Link>
+                <Link href="/?type=SALE" className={`py-2 text-sm ${isActive('SALE')}`}>Cumpara</Link>
+                <Link href="/?type=RENT" className={`py-2 text-sm ${isActive('RENT')}`}>Închiriaza</Link>
                 <Link href="#" className="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors">Vinde</Link>
             </nav>
 
@@ -113,7 +110,7 @@ export default function Navbar() {
                 {user ? (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            {/* Butonul "Pastilă" */}
+                            {/* Butonul "Pastila" */}
                             <Button
                                 variant="secondary"
                                 className="relative bg-neutral-50 h-12 rounded-3xl pl-1 pr-4 gap-2 hover:bg-gray-100 hover:border-gray-300 transition-all group"
@@ -152,7 +149,7 @@ export default function Navbar() {
                                 <DropdownMenuItem asChild>
                                     <Link href="/account" className="cursor-pointer flex items-center gap-2 py-2.5 rounded-md focus:bg-blue-50 focus:text-blue-700">
                                         <Settings className="h-4 w-4 text-slate-500" />
-                                        <span className="font-medium">Setări Cont</span>
+                                        <span className="font-medium">Setari Cont</span>
                                     </Link>
                                 </DropdownMenuItem>
 
@@ -163,10 +160,14 @@ export default function Navbar() {
                                     </Link>
                                 </DropdownMenuItem>
 
-                                {/* Opțiune Future-Proof */}
+                                {/* Optiune Future-Proof */}
                                 <DropdownMenuItem disabled className="opacity-50 flex items-center gap-2 py-2.5">
                                     <LayoutDashboard className="h-4 w-4" />
-                                    <span>Anunțurile mele</span>
+                                    <span>Anunturile mele</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem disabled className="opacity-50 flex items-center gap-2 py-2.5">
+                                    <Layout className="h-4 w-4" />
+                                    <span>Adauga anunt</span>
                                 </DropdownMenuItem>
                             </DropdownMenuGroup>
 

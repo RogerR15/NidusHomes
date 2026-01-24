@@ -47,7 +47,7 @@ def get_listings(
     if min_sqm:
         query = query.filter(models.Listing.sqm >= min_sqm)
     if rooms:
-        query = query.filter(models.Listing.rooms == rooms)
+        query = query.filter(models.Listing.rooms >= rooms)
     if neighborhood:
         # Cautare case-insensitive (ex: "copou" gasește "Copou, Iasi")
         query = query.filter(models.Listing.neighborhood.ilike(f"%{neighborhood}%"))

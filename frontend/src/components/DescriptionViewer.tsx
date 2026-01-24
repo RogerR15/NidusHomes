@@ -6,7 +6,6 @@ export default function DescriptionViewer({ text }: { text: string }) {
     // Spargem textul in linii
     const lines = text.split('\n').filter(line => line.trim() !== '');
 
-
     const isHeader = (line: string) => {
         const clean = line.trim();
         // E titlu daca e scurt (sub 40 caractere) SI (se termina cu ':' SAU e scris cu CAPS LOCK)
