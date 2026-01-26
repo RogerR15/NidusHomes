@@ -10,6 +10,7 @@ class Listing(Base):
     __tablename__ = "listings"
 
     id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(String, nullable=True)
     title = Column(String, nullable=False)
     description = Column(Text)
 

@@ -10,7 +10,7 @@ import PriceHistoryChart from '@/components/PriceHistoryChart';
 import { Separator } from '@/components/ui/separator';
 import ImageGallery from '@/components/ImageGallery';
 
-// Importam harta dinamic (fara SSR) pentru a evita erorile Leaflet
+
 const MiniMap = dynamic(() => import('@/components/MiniMap'), {
     ssr: false,
     loading: () => <div className="h-48 bg-gray-100 animate-pulse rounded-lg"></div>
@@ -21,7 +21,6 @@ export default function ListingPage() {
     const router = useRouter();
     const [listing, setListing] = useState<any>(null); // Folosim any temporar pt câmpuri noi
     const [loading, setLoading] = useState(true);
-    const [activeImageIndex, setActiveImageIndex] = useState(0);
 
     useEffect(() => {
         if (id) {
@@ -151,17 +150,42 @@ export default function ListingPage() {
                             )}
 
                             {/* Buton Sursa */}
-                            <a
-                                href={listing.listing_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block w-full bg-orange-500 hover:bg-orange-600 text-white font-bold text-center py-4 rounded-xl transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
-                            >
-                                Vezi anuntul pe {listing.source_platform}
-                            </a>
-                            <p className="text-xs text-center text-gray-400 mt-3">
-                                Vei fi redirectionat catre site-ul sursa
-                            </p>
+                            {listing.source_platform !== 'NidusHomes' && listing.listing_url ? (
+                                <>
+                                    <a
+                                        href={listing.listing_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block w-full bg-orange-500 hover:bg-orange-600 text-white font-bold text-center py-4 rounded-xl transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                                    >
+                                        Vezi anunțul pe {listing.source_platform}
+                                    </a>
+                                    <p className="text-xs text-center text-gray-400 mt-3">
+                                        Vei fi redirecționat către site-ul sursă
+                                    </p>
+                                </>
+                            ) : (
+                                    <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-5 relative overflow-hidden group hover:border-indigo-200 transition-colors">
+                                        <div className="flex items-start gap-4">
+                                            {/* Badge Icon */}
+                                            <div className="bg-white p-3 rounded-xl shadow-sm border border-indigo-100 text-indigo-600">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" /><path d="m9 12 2 2 4-4" /></svg>
+                                            </div>
+
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                                        Oficial
+                                                    </span>
+                                                </div>
+                                                <h3 className="font-bold text-gray-900 text-md">Anunț adăugat de pe NidusHome</h3>
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    Această proprietate este listată direct de proprietar pe platforma noastră.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                            )}
                         </div>
 
                     </div>

@@ -149,7 +149,6 @@ export default function MapView({ listings, activeId, setActiveId }: any) {
                                     <div className="w-48 overflow-hidden rounded-lg">
                                         {/* Partea de Imagine (deja existenta) */}
                                         {popupImageUrl && (
-                                            // Poti face si imaginea clickabila infasurând-o in Link
                                             <Link href={`/listing/${l.id}`}>
                                                 <img
                                                     src={popupImageUrl}

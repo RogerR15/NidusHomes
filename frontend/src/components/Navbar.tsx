@@ -161,13 +161,17 @@ export default function Navbar() {
                                 </DropdownMenuItem>
 
                                 {/* Optiune Future-Proof */}
-                                <DropdownMenuItem disabled className="opacity-50 flex items-center gap-2 py-2.5">
-                                    <LayoutDashboard className="h-4 w-4" />
-                                    <span>Anunturile mele</span>
+                                <DropdownMenuItem asChild>
+                                    <Link href="/my-listings" className="cursor-pointer flex items-center gap-2 py-2.5 rounded-md focus:bg-blue-50 focus:text-blue-700">
+                                        <Layout className="h-4 w-4 text-slate-500" />
+                                        <span className="font-medium" >Anunturile mele</span>
+                                    </Link>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem disabled className="opacity-50 flex items-center gap-2 py-2.5">
-                                    <Layout className="h-4 w-4" />
-                                    <span>Adauga anunt</span>
+                                <DropdownMenuItem asChild>
+                                    <Link href="/add" className="cursor-pointer flex items-center gap-2 py-2.5 rounded-md focus:bg-blue-50 focus:text-blue-700">
+                                        <Layout className="h-4 w-4 text-slate-500" />
+                                        <span className="font-medium" >Adauga anunt</span>
+                                    </Link>
                                 </DropdownMenuItem>
                             </DropdownMenuGroup>
 
