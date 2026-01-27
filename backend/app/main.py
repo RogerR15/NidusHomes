@@ -4,9 +4,8 @@ from supabase import create_client, Client
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import List, Optional
-from fastapi.middleware.cors import CORSMiddleware # Importul e aici
+from fastapi.middleware.cors import CORSMiddleware 
 
-# Asigură-te că aceste importuri locale funcționează (folderul app)
 from app import models, schemas
 from app.database import engine, get_db
 
@@ -73,13 +72,26 @@ def get_listings(
 
 # 2. GET SINGLE LISTING (Detalii)
 @app.get("/listings/{listing_id}", response_model=schemas.ListingOut)
-def get_listing_detail(listing_id: int, db: Session = Depends(get_db)):
+def get_listing_detail(
+    listing_id: int, 
+    increment_view: bool = True,
+    db: Session = Depends(get_db)
+    ):
     listing = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
+    
+    if increment_view:
+        if listing.views is None:
+            listing.views = 0
+        listing.views += 1
+
+    db.commit()         
+    db.refresh(listing)
+    
     return listing
 
-# 3. CREATE LISTING (Adaugă Anunț)
+# 3. CREATE LISTING 
 @app.post("/listings", response_model=schemas.ListingOut, status_code=201)
 def create_listing(
     listing: schemas.ListingCreate, 
@@ -116,6 +128,8 @@ def create_listing(
         sqm=listing.sqm,
         neighborhood=listing.neighborhood,
         address=listing.address,
+        floor=listing.floor,          
+        year_built=listing.year_built,
         
         geom=geom_point,
         images=listing.images, # Lista de poze
@@ -126,9 +140,14 @@ def create_listing(
         status="ACTIVE"
     )
 
+    
     db.add(new_listing)
     db.commit()
     db.refresh(new_listing)
+
+    fav_count = 0
+    listing_data = schemas.ListingOut.model_validate(listing)
+    listing_data.favorites_count = fav_count
 
     return new_listing
 
@@ -248,6 +267,236 @@ def update_listing(
     db.commit()
     db.refresh(db_listing)
     return db_listing
+
+# 7. TOGGLE FAVORITE (Save / Unsave)
+@app.post("/listings/{listing_id}/favorite")
+def toggle_favorite(
+    listing_id: int,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    # 1. Auth Check
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Trebuie să fii logat.")
+    try:
+        token = authorization.split(" ")[1]
+        user = supabase.auth.get_user(token)
+        user_id = str(user.user.id)
+    except:
+        raise HTTPException(status_code=401, detail="Token invalid.")
+
+    # 2. Căutăm anunțul
+    listing = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
+    if not listing:
+        raise HTTPException(status_code=404, detail="Anunțul nu există.")
+
+    # 3. Verificăm în tabelul tău 'favorites'
+    existing_fav = db.query(models.Favorite).filter(
+        models.Favorite.user_id == user_id,
+        models.Favorite.listing_id == listing_id
+    ).first()
+
+    if existing_fav:
+        # --- CAZUL 1: E deja salvat -> ÎL ȘTERGEM (UNSAVE) ---
+        db.delete(existing_fav)
+        
+        # Decrementăm contorul
+        if listing.favorites_count and listing.favorites_count > 0:
+            listing.favorites_count -= 1
+        
+        message = "Removed from favorites"
+        is_favorited = False
+    else:
+        # --- CAZUL 2: Nu e salvat -> ÎL ADĂUGĂM (SAVE) ---
+        # Aici folosim structura ta (id se autogenerează)
+        new_fav = models.Favorite(
+            user_id=user_id, 
+            listing_id=listing_id
+        )
+        db.add(new_fav)
+        
+        # Incrementăm contorul
+        if listing.favorites_count is None:
+            listing.favorites_count = 0
+        listing.favorites_count += 1
+        
+        message = "Added to favorites"
+        is_favorited = True
+
+    db.commit()
+    db.refresh(listing)
+
+    return {
+        "message": message,
+        "favorites_count": listing.favorites_count,
+        "is_favorited": is_favorited
+    }
+
+# 8. CHECK FAVORITE STATUS
+@app.get("/listings/{listing_id}/is_favorited")
+def check_favorite(
+    listing_id: int,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    if not authorization:
+        return {"is_favorited": False}
+    
+    try:
+        token = authorization.split(" ")[1]
+        user = supabase.auth.get_user(token)
+        user_id = str(user.user.id)
+        
+        fav = db.query(models.Favorite).filter(
+            models.Favorite.user_id == user_id,
+            models.Favorite.listing_id == listing_id
+        ).first()
+        
+        return {"is_favorited": fav is not None}
+    except:
+        return {"is_favorited": False}
+    
+# 9. RESET VIEWS (Doar pentru proprietar)
+@app.put("/listings/{listing_id}/reset-views")
+def reset_listing_views(
+    listing_id: int,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    # 1. Auth Check
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing Token")
+    try:
+        token = authorization.split(" ")[1]
+        user = supabase.auth.get_user(token)
+        user_id = str(user.user.id)
+    except:
+        raise HTTPException(status_code=401, detail="Invalid Token")
+
+    # 2. Găsim anunțul
+    listing = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
+    if not listing:
+        raise HTTPException(status_code=404, detail="Anunțul nu există")
+
+    # 3. Verificăm dacă ești proprietarul
+    # Folosim funcția de normalizare id pe care o ai deja sau comparăm direct
+    def normalize_id(uid):
+        return str(uid).strip().lower().replace('"', '').replace("'", "")
+
+    if normalize_id(listing.owner_id) != normalize_id(user_id):
+        raise HTTPException(status_code=403, detail="Nu ai voie să resetezi vizualizările acestui anunț")
+
+    # 4. Resetăm vizualizările
+    listing.views = 0
+    db.commit()
+    db.refresh(listing)
+
+    return {"message": "Vizualizări resetate cu succes", "views": 0}
+
+
+# 10. TRIMITE CERERE REVENDICARE (User)
+@app.post("/listings/{listing_id}/claim", response_model=schemas.ClaimRequestOut)
+def submit_claim(
+    listing_id: int,
+    claim_data: schemas.ClaimRequestCreate,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Trebuie să fii logat.")
+    
+    try:
+        token = authorization.split(" ")[1]
+        user = supabase.auth.get_user(token)
+        user_id = str(user.user.id)
+    except:
+        raise HTTPException(status_code=401, detail="Token invalid.")
+
+    # Verificăm anunțul
+    listing = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
+    if not listing:
+        raise HTTPException(status_code=404, detail="Anunțul nu există.")
+    if listing.is_claimed:
+        raise HTTPException(status_code=400, detail="Anunțul este deja revendicat.")
+
+    # Verificăm duplicate
+    existing = db.query(models.ClaimRequest).filter(
+        models.ClaimRequest.listing_id == listing_id,
+        models.ClaimRequest.user_id == user_id,
+        models.ClaimRequest.status == 'PENDING'
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Ai deja o cerere în așteptare.")
+
+    new_claim = models.ClaimRequest(
+        user_id=user_id,
+        listing_id=listing_id,
+        proof_document_url=claim_data.proof_document_url,
+        contact_info=claim_data.contact_info,
+        status="PENDING"
+    )
+    db.add(new_claim)
+    db.commit()
+    db.refresh(new_claim)
+    return new_claim
+
+# 11. VEZI CERERI PENDING (Admin Panel)
+@app.get("/admin/claims", response_model=List[schemas.ClaimRequestOut])
+def get_pending_claims(
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    # TODO: Aici ar trebui să verifici dacă user_id == ADMIN_ID_UL_TAU
+    # Momentan lăsăm deschis doar pentru tine să vezi datele
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    claims = db.query(models.ClaimRequest).filter(models.ClaimRequest.status == 'PENDING').all()
+    return claims
+
+# 12. APROBĂ CERERE (Admin Action)
+@app.post("/admin/claims/{claim_id}/approve")
+def approve_claim(
+    claim_id: int,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    # Verificare simplă Admin (poți hardcoda ID-ul tău aici pentru siguranță reală)
+    # if user_id != "ID-UL-TAU-SUPABASE": raise HTTPException(403)
+
+    claim = db.query(models.ClaimRequest).filter(models.ClaimRequest.id == claim_id).first()
+    if not claim:
+        raise HTTPException(status_code=404, detail="Cererea nu există.")
+
+    if claim.status != 'PENDING':
+        raise HTTPException(status_code=400, detail="Cererea nu este în așteptare.")
+
+    listing = db.query(models.Listing).filter(models.Listing.id == claim.listing_id).first()
+    
+    # --- TRANSFERUL REAL DE PROPRIETATE ---
+    listing.owner_id = claim.user_id      # Noul proprietar
+    listing.is_claimed = True             # Marcat ca revendicat
+    listing.source_platform = "NidusHomes" # Devine 'Oficial'
+    
+    claim.status = "APPROVED"
+    
+    db.commit()
+    return {"message": "Aprobat cu succes! Proprietatea a fost transferată."}
+
+# 13. RESPINGE CERERE
+@app.post("/admin/claims/{claim_id}/reject")
+def reject_claim(
+    claim_id: int,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    claim = db.query(models.ClaimRequest).filter(models.ClaimRequest.id == claim_id).first()
+    if not claim:
+        raise HTTPException(status_code=404, detail="Cererea nu există.")
+
+    claim.status = "REJECTED"
+    db.commit()
+    return {"message": "Cerere respinsă."}
 
 @app.get("/")
 def read_root():

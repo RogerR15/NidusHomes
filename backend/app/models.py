@@ -42,6 +42,9 @@ class Listing(Base):
     is_claimed = Column(Boolean, default=False)
     status = Column(String, default="ACTIVE")
 
+    views = Column(Integer, default=0)
+    favorites_count = Column(Integer, default=0)
+
     # Timestamp pentru ultima verificare a anuntului
     last_seen_at = Column(DateTime(timezone=True), server_default=func.now())
     
@@ -66,3 +69,23 @@ class Listing(Base):
                 return to_shape(self.geom).x
         except: pass
         return None
+    
+
+class Favorite(Base):
+    __tablename__ = "favorites"  
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, nullable=False)
+    listing_id = Column(Integer, ForeignKey("listings.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ClaimRequest(Base):
+    __tablename__ = "claim_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, nullable=False)
+    listing_id = Column(Integer, ForeignKey("listings.id"), nullable=False)
+    status = Column(String, default="PENDING")
+    proof_document_url = Column(String, nullable=True)
+    contact_info = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

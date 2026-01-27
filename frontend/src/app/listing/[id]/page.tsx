@@ -9,6 +9,7 @@ import MortgageCalculator from '@/components/MortgageCalculator';
 import PriceHistoryChart from '@/components/PriceHistoryChart';
 import { Separator } from '@/components/ui/separator';
 import ImageGallery from '@/components/ImageGallery';
+import { Eye, Heart } from 'lucide-react';
 
 
 const MiniMap = dynamic(() => import('@/components/MiniMap'), {
@@ -24,7 +25,7 @@ export default function ListingPage() {
 
     useEffect(() => {
         if (id) {
-            axios.get(`http://127.0.0.1:8000/listings/${id}`)
+            axios.get(`http://127.0.0.1:8000/listings/${id}?t=${new Date().getTime()}`)
                 .then(res => {
                     setListing(res.data);
                     setLoading(false);
@@ -105,6 +106,18 @@ export default function ListingPage() {
                     <div className="space-y-6">
 
                         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 sticky top-24">
+                            <div className="flex justify-end gap-4 text-gray-400 text-xs mb-4">
+                                <div className="flex items-center gap-1" title="Vizualizări totale">
+                                    <Eye size={14} />
+                                    <span>{listing.views || 0} vizualizări</span>
+                                </div>
+                                <div className="flex items-center gap-1" title="Adăugat la favorite">
+                                    <Heart size={14} className="text-red-400" />
+                                    <span>{listing.favorites_count || 0} salvări</span>
+                                </div>
+                            </div>
+                            
+                            
                             <div className="mb-6">
                                 <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold mb-2 ${listing.transaction_type === 'RENT' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
                                     {listing.transaction_type === 'RENT' ? 'DE ÎNCHIRIAT' : 'DE VÂNZARE'}

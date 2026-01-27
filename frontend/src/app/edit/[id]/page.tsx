@@ -49,7 +49,7 @@ export default function EditListingPage() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) { router.push('/login'); return; }
 
-        const res = await axios.get(`http://127.0.0.1:8000/listings/${id}`);
+        const res = await axios.get(`http://127.0.0.1:8000/listings/${id}?increment_view=false`);
         const data = res.data;
 
         setFormData({

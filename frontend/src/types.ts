@@ -15,4 +15,10 @@ export interface Listing {
     rooms?: number;
     floor?: number;
     created_at: string;
+    updated_at?: string;
+    owner_id?: string;
+
+    views?: number;
+    favorites_count?: number;
+    is_claimed?: boolean;
 }

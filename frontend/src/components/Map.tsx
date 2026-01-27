@@ -10,16 +10,14 @@ function MapController({ activeListing, clusterGroupRef }: { activeListing: any,
     const map = useMap();
 
     useEffect(() => {
-        if (activeListing) { // Verificam doar daca exista anuntul
-            // VALIDARE CRITICa: Convertim si verificam coordonatele inainte de orice actiune
+        if (!map) return;
+
+        if (activeListing) {
+            // --- LOGICĂ PENTRU LISTING ACTIV ---
             const lat = Number(activeListing.latitude ?? activeListing.lat);
             const lng = Number(activeListing.longitude ?? activeListing.lng ?? activeListing.lon);
 
-            // Daca coordonatele sunt invalide, NU facem nimic (evitam crash-ul)
-            if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) {
-                console.warn("MapController: Coordonate invalide pentru listing", activeListing.id);
-                return;
-            }
+            if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) return;
 
             if (clusterGroupRef.current) {
                 const markers = clusterGroupRef.current.getLayers();
@@ -34,13 +32,29 @@ function MapController({ activeListing, clusterGroupRef }: { activeListing: any,
                         }, 300);
                     });
                 } else {
-                    // Folosim variabilele verificate (lat, lng), nu proprietatile brute
+                    try {
+                        map.flyTo([lat, lng], 18);
+                    } catch (e) {
+                        map.setView([lat, lng], 18);
+                    }
+                }
+            } else {
+                try {
                     map.flyTo([lat, lng], 18);
+                } catch (e) {
+                    map.setView([lat, lng], 18);
                 }
             }
         } else {
-            // Reset view
-            map.flyTo([47.1585, 27.6014], 13, { duration: 1.5 });
+            // --- LOGICĂ PENTRU RESET VIEW (AICI ERA EROAREA) ---
+            try {
+                // Încercăm animația
+                map.flyTo([47.1585, 27.6014], 13, { duration: 1.5 });
+            } catch (e) {
+                // Dacă Leaflet dă eroare (NaN), folosim setarea instantanee care nu dă greș
+                // console.warn("Harta nu e gata pentru animație, folosim setView");
+                map.setView([47.1585, 27.6014], 13);
+            }
             map.closePopup();
         }
     }, [activeListing, map, clusterGroupRef]);

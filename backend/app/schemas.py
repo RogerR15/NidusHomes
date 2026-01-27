@@ -42,9 +42,31 @@ class ListingOut(ListingBase):
     longitude: Optional[float] = Field(None, alias="lng")
     
     created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None 
     owner_id: Optional[Union[str, UUID]] = None
+
+    views: int = 0
+    favorites_count: int = 0
+    is_claimed: bool = False
 
     class Config:
         from_attributes = True # Permite conversia automata din SQLAlchemy
         populate_by_name = True # Permite folosirea alias-urilor la output
+
+
+# --- CLAIM SCHEMAS ---
+class ClaimRequestCreate(BaseModel):
+    proof_document_url: str
+    contact_info: Optional[str] = None
+
+class ClaimRequestOut(BaseModel):
+    id: int
+    user_id: Union[str, UUID]
+    listing_id: int
+    status: str
+    proof_document_url: Optional[str]
+    contact_info: Optional[str]
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
