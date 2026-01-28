@@ -145,3 +145,14 @@ class Lead(Base):
     message = Column(String)
     status = Column(String, default='NOU')
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class AgentReview(Base):
+    __tablename__ = "agent_reviews"
+
+    id = Column(Integer, primary_key=True, index=True)
+    agent_id = Column(String, index=True)  # UUID-ul agentului
+    client_id = Column(String)             # UUID-ul clientului care lasă recenzia
+    rating = Column(Integer)               # 1-5
+    comment = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

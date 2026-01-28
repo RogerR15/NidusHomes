@@ -915,6 +915,61 @@ def get_my_agent_profile(
     return agent
 
 
+@app.post("/reviews", status_code=201)
+def create_review(
+    review_data: schemas.ReviewCreate,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    if not authorization: raise HTTPException(401)
+    token = authorization.split(" ")[1]
+    
+    user_auth = supabase.auth.get_user(token)
+    client_id = str(user_auth.user.id)
+
+    # 1. Nu te poți nota singur
+    if client_id == review_data.agent_id:
+        raise HTTPException(400, detail="Nu îți poți lăsa singur recenzie.")
+
+    # --- 2. VERIFICARE DUPLICAT (COD NOU) ---
+    # Căutăm dacă există deja o recenzie de la acest client pentru acest agent
+    existing_review = db.query(models.AgentReview).filter(
+        models.AgentReview.agent_id == review_data.agent_id,
+        models.AgentReview.client_id == client_id
+    ).first()
+
+    if existing_review:
+        raise HTTPException(400, detail="Ai lăsat deja o recenzie acestui agent.")
+    # ----------------------------------------
+
+    # 3. Salvăm Recenzia (Codul existent)
+    new_review = models.AgentReview(
+        agent_id=review_data.agent_id,
+        client_id=client_id,
+        rating=review_data.rating,
+        comment=review_data.comment
+    )
+    db.add(new_review)
+    db.commit()
+
+    # 3. RECALCULĂM MEDIA AGENTULUI (CRITIC!)
+    # Calculăm media tuturor notelor acestui agent
+    avg_data = db.query(func.avg(models.AgentReview.rating), func.count(models.AgentReview.id))\
+                 .filter(models.AgentReview.agent_id == review_data.agent_id).first()
+    
+    new_rating = round(avg_data[0], 1) if avg_data[0] else 0.0
+    total_reviews = avg_data[1]
+
+    # Actualizăm profilul agentului
+    agent = db.query(models.AgentProfile).filter(models.AgentProfile.id == review_data.agent_id).first()
+    if agent:
+        agent.rating = new_rating
+        # Dacă ai coloana review_count în agent_profiles, o poți actualiza și pe aia
+        # agent.review_count = total_reviews 
+        db.commit()
+
+    return {"message": "Recenzie salvată", "new_rating": new_rating}
+
 
 @app.get("/")
 def read_root():

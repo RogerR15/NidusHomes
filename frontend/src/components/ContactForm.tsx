@@ -1,10 +1,11 @@
 'use client';
 import { useState } from 'react';
-import { Send, MessageSquare, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Send, MessageSquare, AlertTriangle, ShieldCheck, Star } from 'lucide-react';
 import axios from 'axios';
 import Link from 'next/link';
 import { createClient } from '../../utils/supabase/client';
 import ClaimModal from './ClaimModal';
+import StarRating from './StarRating'; 
 
 interface ContactFormProps {
     listingId: number;
@@ -18,13 +19,22 @@ interface ContactFormProps {
 }
 
 export default function ContactForm({ listingId, ownerId, agentDetails }: ContactFormProps) {
+    // State-uri existente
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
     const [sent, setSent] = useState(false);
     const [isClaimOpen, setIsClaimOpen] = useState(false);
+    
+    // State-uri NOI pentru Review
+    const [showReview, setShowReview] = useState(false);
+    const [reviewRating, setReviewRating] = useState(0);
+    const [reviewText, setReviewText] = useState("");
+    
     const supabase = createClient();
 
+    
     // ANUNT NEREVENDICAT (Fara Proprietar)
+    
     if (!ownerId) {
         return (
             <>
@@ -65,7 +75,8 @@ export default function ContactForm({ listingId, ownerId, agentDetails }: Contac
         );
     }
 
-    // MESAJ TRIMIS 
+   
+    // MESAJ DEJA TRIMIS (FEEDBACK)
     if (sent) {
         return (
             <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center sticky top-24">
@@ -91,7 +102,8 @@ export default function ContactForm({ listingId, ownerId, agentDetails }: Contac
         );
     }
 
-    // FORMULAR 
+
+    // TRIMITERE MESAJ (CHAT) 
     const handleSend = async () => {
         if (!message.trim()) return;
         setLoading(true);
@@ -129,12 +141,42 @@ export default function ContactForm({ listingId, ownerId, agentDetails }: Contac
         }
     };
 
+
+    //TRIMITERE REVIEW (NOU)
+    const handleSubmitReview = async () => {
+        if (reviewRating === 0) return alert("Te rog selectează un număr de stele.");
+        
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return alert("Trebuie să fii autentificat pentru a lăsa o recenzie.");
+
+        if (session.user.id === ownerId) return alert("Nu îți poți lăsa singur recenzie.");
+
+        try {
+            await axios.post('http://127.0.0.1:8000/reviews', {
+                agent_id: ownerId,
+                rating: reviewRating,
+                comment: reviewText
+            }, {
+                headers: { Authorization: `Bearer ${session.access_token}` }
+            });
+            
+            alert("Recenzia a fost trimisă cu succes!");
+            setShowReview(false); // Închidem formularul
+            setReviewText("");
+            setReviewRating(0);
+        } catch (e) {
+            alert("Eroare: Probabil ai lăsat deja o recenzie acestui agent.");
+        }
+    };
+
     return (
         <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm sticky top-24">
+            
+            {/* --- HEADER AGENT --- */}
             {agentDetails && (
                 <div className="mb-6 border-b pb-4">
                     <div className="flex items-center gap-3 mb-2">
-                        {/* Avatar Agent (Placeholder sau real) */}
+                        {/* Avatar Agent */}
                         <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-lg">
                             {agentDetails.agency_name ? agentDetails.agency_name[0] : 'A'}
                         </div>
@@ -143,18 +185,55 @@ export default function ContactForm({ listingId, ownerId, agentDetails }: Contac
                                 {agentDetails.agency_name || "Agent Independent"}
                                 {agentDetails.is_verified && <span className="ml-1 text-blue-500" title="Verificat">✓</span>}
                             </h3>
-                            <div className="flex items-center text-yellow-500 text-sm">
-                                ★ {agentDetails.rating || "5.0"} <span className="text-gray-400 ml-1">(24 reviews)</span>
+                            <div className="flex items-center text-yellow-500 text-sm font-medium">
+                                ★ {agentDetails.rating || "5.0"} 
+                                <span className="text-gray-400 ml-1 font-normal text-xs">(Rating mediu)</span>
                             </div>
                         </div>
                     </div>
-                    <p className="text-sm text-gray-600">
-                        Listing Agent
-                    </p>
+                    
+                    <div className="flex justify-between items-center mt-2">
+                        <p className="text-sm text-gray-600">Listing Agent</p>
+                        
+                        {/* BUTON TOGGLE REVIEW */}
+                        <button 
+                            onClick={() => setShowReview(!showReview)}
+                            className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 hover:bg-blue-50 px-2 py-1 rounded transition"
+                        >
+                            <Star size={12}/> {showReview ? "Închide" : "Lasă o recenzie"}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* --- FORMULAR REVIEW (CONDITIONAL) --- */}
+            {showReview && (
+                <div className="mb-6 bg-yellow-50 border border-yellow-100 rounded-lg p-4 animate-in fade-in slide-in-from-top-2">
+                    <h4 className="font-bold text-sm text-gray-800 mb-2">Cum a fost experiența?</h4>
+                    
+                    <div className="mb-3 flex justify-center">
+                        <StarRating totalStars={5} onRate={(val) => setReviewRating(val)} />
+                    </div>
+
+                    <textarea 
+                        className="w-full border border-yellow-200 rounded p-2 text-sm mb-2 focus:ring-2 focus:ring-yellow-400 outline-none resize-none bg-white"
+                        placeholder="Scrie o scurtă părere..."
+                        rows={2}
+                        value={reviewText}
+                        onChange={e => setReviewText(e.target.value)}
+                    />
+                    
+                    <button 
+                        onClick={handleSubmitReview}
+                        className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 rounded text-sm transition shadow-sm"
+                    >
+                        Trimite Recenzia
+                    </button>
                 </div>
             )}
 
             
+            {/* --- FORMULAR MESAJ --- */}
             <h3 className="font-bold text-lg text-gray-900 mb-4 flex items-center gap-2">
                 <MessageSquare className="text-blue-600" size={20}/> 
                 Contacteaza Proprietarul

@@ -160,3 +160,9 @@ class ListingOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ReviewCreate(BaseModel):
+    agent_id: str # UUID-ul agentului
+    rating: int   # 1 - 5
+    comment: Optional[str] = None

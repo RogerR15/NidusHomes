@@ -15,17 +15,19 @@ import Navbar from '@/components/Navbar';
 import Link from 'next/link';
 import { createClient } from '../../../../utils/supabase/client';
 
+
 export default function AgentDashboard() {
     const [leads, setLeads] = useState<any[]>([]);
-    const [myListings, setMyListings] = useState<any[]>([]); // Stocăm anunțurile agentului
-    const [selectedListingId, setSelectedListingId] = useState<string>(""); // Ce anunț selectăm pt PDF
+    const [myListings, setMyListings] = useState<any[]>([]);
+    const [agentProfile, setAgentProfile] = useState<any>(null); // <--- State pentru Rating
+    const [selectedListingId, setSelectedListingId] = useState<string>(""); 
     
     const [loadingLeads, setLoadingLeads] = useState(true);
     const [loadingPDF, setLoadingPDF] = useState(false);
     
     const supabase = createClient();
 
-    // 1. Încărcăm Datele (Leads + Listings)
+    // 1. Încărcăm Datele (Leads + Listings + Profil)
     useEffect(() => {
         const fetchData = async () => {
             const { data: { session } } = await supabase.auth.getSession();
@@ -34,27 +36,32 @@ export default function AgentDashboard() {
             const token = session.access_token;
             const headers = { Authorization: `Bearer ${token}` };
 
+            // A. Luăm Lead-urile
             try {
-                // A. Luăm Lead-urile
                 const leadsRes = await axios.get('http://127.0.0.1:8000/agent/leads', { headers });
                 setLeads(leadsRes.data);
-
-                // B. Luăm Anunțurile mele (pentru Dropdown-ul de PDF)
-                // Presupunem că ai un endpoint care returnează anunțurile userului curent
-                // Dacă nu ai, poți filtra un GET /listings, dar ideal e un endpoint dedicat.
-                // Aici folosim un trick: luăm toate și filtrăm (temporar) sau un endpoint nou.
-                // Voi folosi un endpoint ipotetic /my-listings pe care l-am discutat anterior, 
-                // sau interogăm direct listings unde owner_id = user.id
-                
-                const listingsRes = await axios.get('http://127.0.0.1:8000/my-listings', { headers });
-                setMyListings(listingsRes.data);
-                
-                
-
             } catch (err) {
-                console.log("Eroare la încărcare date dashboard.", err);
+                console.log("Eroare leads:", err);
             } finally {
                 setLoadingLeads(false);
+            }
+
+            // B. Luăm Anunțurile mele
+            try {
+                // Încercăm endpoint-ul nou creat. Dacă nu merge, verifică backend-ul.
+                const listingsRes = await axios.get('http://127.0.0.1:8000/my-listings', { headers });
+                setMyListings(listingsRes.data);
+            } catch (err) {
+                console.log("Eroare anunturi:", err);
+            }
+
+            // C. Luăm Profilul Agentului (PENTRU RATING)
+            try {
+                const profileRes = await axios.get('http://127.0.0.1:8000/agent/profile', { headers });
+                setAgentProfile(profileRes.data);
+            } catch (err) {
+                console.log("Eroare profil/rating:", err);
+                // Nu facem nimic, lăsăm rating-ul 0.0, dar restul paginii merge!
             }
         };
         fetchData();
@@ -68,31 +75,37 @@ export default function AgentDashboard() {
         }
 
         setLoadingPDF(true);
+        const { data: { session } } = await supabase.auth.getSession();
+
         try {
             const res = await axios.post(`http://127.0.0.1:8000/agent/generate-cma/${selectedListingId}`, {}, {
+                headers: { Authorization: `Bearer ${session?.access_token}` },
                 responseType: 'blob'
             });
             
             const url = window.URL.createObjectURL(new Blob([res.data]));
             const link = document.createElement('a');
             link.href = url;
-            // Găsim numele casei pt numele fișierului
             const listingTitle = myListings.find(l => l.id.toString() === selectedListingId)?.title || "Raport";
             link.setAttribute('download', `CMA_${listingTitle}.pdf`);
             document.body.appendChild(link);
             link.click();
         } catch (err) {
-            alert("Eroare: Nu am putut genera raportul (poate nu ai suficiente date comparabile).");
+            alert("Eroare: Nu am putut genera raportul.");
         } finally {
             setLoadingPDF(false);
         }
     };
 
-    // Helper pentru formatarea datei
     const formatDate = (dateStr: string) => {
         if(!dateStr) return "-";
         return new Date(dateStr).toLocaleDateString('ro-RO', { day: 'numeric', month: 'short', year: 'numeric' });
     }
+
+    // Calcul Rata Conversie
+    const conversionRate = myListings.length > 0 
+        ? ((leads.length / myListings.length) * 100).toFixed(0) 
+        : "0";
 
     return (
         <div className="min-h-screen bg-gray-50 pb-12">
@@ -104,7 +117,9 @@ export default function AgentDashboard() {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                     <div>
                         <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Dashboard Agent</h1>
-                        <p className="text-gray-500 mt-1">Gestionează lead-urile și analizează piața.</p>
+                        <p className="text-gray-500 mt-1">
+                            Salut, {agentProfile?.agency_name || "Agent"}!
+                        </p>
                     </div>
                     <div className="flex items-center gap-3">
                         <Link href="/add">
@@ -118,8 +133,8 @@ export default function AgentDashboard() {
                     </div>
                 </div>
 
-                {/* --- STATISTICI (KPIs) --- */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                {/*STATISTICI (KPIs)*/}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                     <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
                         <div>
                             <p className="text-xs font-bold text-gray-400 uppercase">Lead-uri Totale</p>
@@ -136,18 +151,14 @@ export default function AgentDashboard() {
                         <div className="bg-purple-50 p-3 rounded-full text-purple-600"><Home size={20}/></div>
                     </div>
 
-                    <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase">Rata Conversie</p>
-                            <p className="text-2xl font-black text-gray-900">12%</p>
-                        </div>
-                        <div className="bg-green-50 p-3 rounded-full text-green-600"><TrendingUp size={20}/></div>
-                    </div>
 
+                    {/*  RATING-UL REAL (Calculat din backend) */}
                     <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
                         <div>
                             <p className="text-xs font-bold text-gray-400 uppercase">Rating Mediu</p>
-                            <p className="text-2xl font-black text-gray-900">4.9</p>
+                            <p className="text-2xl font-black text-gray-900">
+                                {agentProfile?.rating ? Number(agentProfile.rating).toFixed(1) : "0.0"}
+                            </p>
                         </div>
                         <div className="bg-yellow-50 p-3 rounded-full text-yellow-600">★</div>
                     </div>
@@ -155,7 +166,7 @@ export default function AgentDashboard() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     
-                    {/* --- COLOANA STÂNGA: CRM / LEADS --- */}
+                    {/* COLOANA STANGA: CRM / LEADS */}
                     <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
                         <div className="p-6 border-b border-gray-100 flex justify-between items-center">
                             <h2 className="text-lg font-bold flex items-center gap-2">
@@ -178,10 +189,9 @@ export default function AgentDashboard() {
                                     <thead className="bg-gray-50 text-gray-500 font-medium">
                                         <tr>
                                             <th className="p-4">Nume Client</th>
-                                            <th className="p-4">Proprietate Interes</th>
+                                            <th className="p-4">Proprietate</th>
                                             <th className="p-4">Data</th>
                                             <th className="p-4">Status</th>
-                                            <th className="p-4 text-right">Acțiune</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
@@ -192,7 +202,6 @@ export default function AgentDashboard() {
                                                     <p className="text-xs text-gray-500">{lead.client_phone || 'Fără telefon'}</p>
                                                 </td>
                                                 <td className="p-4 text-gray-600">
-                                                    {/* Dacă ai titlul în obiectul lead, pune-l aici. Dacă nu, ID-ul */}
                                                     ID #{lead.listing_id}
                                                 </td>
                                                 <td className="p-4 text-gray-500 flex items-center gap-1">
@@ -206,9 +215,6 @@ export default function AgentDashboard() {
                                                         {lead.status}
                                                     </span>
                                                 </td>
-                                                <td className="p-4 text-right">
-                                                    <button className="text-xs font-bold text-blue-600 hover:underline">Detalii</button>
-                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -217,7 +223,7 @@ export default function AgentDashboard() {
                         )}
                     </div>
 
-                    {/* --- COLOANA DREAPTA: TOOLS --- */}
+                    {/*  COLOANA DREAPTA: TOOLS */}
                     <div className="space-y-6">
                         
                         {/* CARD GENERATOR PDF (CMA) */}
@@ -242,7 +248,7 @@ export default function AgentDashboard() {
                                     <option value="">-- Selectează un anunț --</option>
                                     {myListings.map(listing => (
                                         <option key={listing.id} value={listing.id}>
-                                            {listing.title} ({listing.price_eur} €)
+                                            {listing.title} ({listing.price_eur.toLocaleString()} €)
                                         </option>
                                     ))}
                                 </select>
@@ -276,10 +282,10 @@ export default function AgentDashboard() {
                                             <p className="text-sm font-bold text-gray-900 truncate group-hover:text-blue-600 transition">
                                                 {listing.title}
                                             </p>
-                                            <p className="text-xs text-gray-500 truncate">{listing.address}</p>
+                                            <p className="text-xs text-gray-500 truncate">{listing.address || "Fără adresă"}</p>
                                         </div>
                                         <div className="text-xs font-bold text-gray-900">
-                                            {listing.price_eur / 1000}k €
+                                            {listing.price_eur >= 1000 ? `${(listing.price_eur / 1000).toFixed(0)}k` : listing.price_eur} €
                                         </div>
                                     </div>
                                 ))}
