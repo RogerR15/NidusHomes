@@ -13,34 +13,44 @@ export default function InboxPage() {
     const supabase = createClient();
     const router = useRouter();
 
+    const fetchConvos = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+            router.push('/login');
+            return;
+        }
+
+        try {
+            const res = await axios.get('http://127.0.0.1:8000/chat/conversations', {
+                headers: { Authorization: `Bearer ${session.access_token}` }
+            });
+            setConversations(res.data);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchConvos = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                router.push('/login');
-                return;
-            }
-
-            try {
-                const res = await axios.get('http://127.0.0.1:8000/chat/conversations', {
-                    headers: { Authorization: `Bearer ${session.access_token}` }
-                });
-                setConversations(res.data);
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchConvos();
-    }, [router]);
 
-    // Helper pentru Proxy Imagini (ca să meargă pozele de pe OLX)
+        // REALTIME: Când vine un mesaj nou în ORICE conversație, reîncărcăm lista
+        // Astfel apare bulina imediat ce primești mesajul
+        const channel = supabase
+            .channel('inbox-realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
+                console.log("Mesaj nou detectat în Inbox!");
+                fetchConvos();
+            })
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, [router, supabase]);
+
     const getImageUrl = (url: string): string | undefined => {
         if (!url) return undefined;
-        if (url.includes('olx')) {
-            return `/api/image-proxy?url=${encodeURIComponent(url)}`;
-        }
+        if (url.includes('olx')) return `/api/image-proxy?url=${encodeURIComponent(url)}`;
         return url;
     };
 
@@ -69,17 +79,36 @@ export default function InboxPage() {
                     <div className="space-y-3">
                         {conversations.map((conv) => {
                             const listing = conv.listing;
+                            
+                            // LOGICA REALĂ DIN BACKEND
+                            const hasUnread = conv.has_unread; // Vine true/false din API
+                            
                             return (
                                 <Link 
                                     key={conv.id} 
                                     href={`/inbox/${conv.id}`} 
-                                    className="block bg-white p-4 rounded-xl border border-gray-200 hover:shadow-md hover:border-blue-300 transition group"
+                                    className={`block bg-white p-4 rounded-xl border transition group relative
+                                        ${hasUnread 
+                                            ? 'border-blue-300 shadow-md bg-blue-50/10' // Stil pentru necitit
+                                            : 'border-gray-200 hover:border-blue-300 hover:shadow-md' // Stil normal
+                                        }
+                                    `}
                                 >
+                                    {/* Bulina de status */}
+                                    {hasUnread && (
+                                        <div className="absolute top-4 right-4 flex items-center gap-2">
+                                            <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
+                                                Nou
+                                            </span>
+                                            <span className="w-2.5 h-2.5 bg-blue-600 rounded-full animate-pulse"></span>
+                                        </div>
+                                    )}
+
                                     <div className="flex justify-between items-center gap-4">
                                         <div className="flex items-center gap-4 flex-1">
                                             
-                                            {/* POZA ANUNȚULUI */}
-                                            <div className="relative w-16 h-16 bg-gray-100 rounded-full overflow-hidden shrink-0 border border-gray-100">
+                                            {/* POZA */}
+                                            <div className="relative w-16 h-16 bg-gray-100 rounded-xl overflow-hidden shrink-0 border border-gray-100">
                                                 {listing && listing.image_url ? (
                                                     <img 
                                                         src={getImageUrl(listing.image_url)} 
@@ -88,28 +117,36 @@ export default function InboxPage() {
                                                     />
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                                        <ImageOff size={20}/>
+                                                        <Home size={20}/>
                                                     </div>
                                                 )}
                                             </div>
 
-                                            {/* TITLU ȘI DETALII */}
+                                            {/* TEXT */}
                                             <div className="flex-1 min-w-0">
-                                                <h3 className="font-bold text-gray-900 truncate text-base">
+                                                <h3 className={`text-base truncate ${hasUnread ? 'font-black text-gray-900' : 'font-bold text-gray-700'}`}>
                                                     {listing ? listing.title : `Discuție Anunț #${conv.listing_id}`}
                                                 </h3>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                                                        {listing ? `${listing.price_eur} €` : 'Nespecificat'}
-                                                    </span>
+                                                
+                                                {/* Preview Mesaj */}
+                                                <p className={`text-sm mt-0.5 truncate max-w-62.5 ${hasUnread ? 'text-gray-900 font-semibold' : 'text-gray-500'}`}>
+                                                    {conv.last_message || "..."}
+                                                </p>
+
+                                                <div className="flex items-center gap-2 mt-2">
+                                                    {listing?.price_eur && (
+                                                        <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                                                            {listing.price_eur.toLocaleString()} €
+                                                        </span>
+                                                    )}
                                                     <span className="text-xs text-gray-400">
-                                                        • Ultima activitate: {new Date(conv.updated_at).toLocaleDateString('ro-RO')}
+                                                        • {new Date(conv.updated_at).toLocaleDateString('ro-RO')}
                                                     </span>
                                                 </div>
                                             </div>
                                         </div>
                                         
-                                        <ArrowRight className="text-gray-300 group-hover:text-blue-600 transition" />
+                                        <ArrowRight className={`transition ${hasUnread ? 'text-blue-600' : 'text-gray-300 group-hover:text-blue-600'}`} />
                                     </div>
                                 </Link>
                             );

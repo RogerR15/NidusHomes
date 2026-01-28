@@ -31,6 +31,30 @@ export default function ChatPage() {
         return url;
     };
 
+    useEffect(() => {
+        const markAsRead = async () => {
+            if (!conversationId) return; 
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if(!session) return;
+
+                // Apelăm endpoint-ul din backend care face update la is_read = true
+                await axios.put(
+                    `http://127.0.0.1:8000/chat/conversations/${conversationId}/read`, 
+                    {}, 
+                    { headers: { Authorization: `Bearer ${session.access_token}` } }
+                );
+                
+                // Opțional: Putem forța un refresh al mesajelor locale dacă e nevoie,
+                // dar realtime-ul ar trebui să se ocupe de asta oricum.
+            } catch (e) {
+                console.error("Nu am putut marca mesajele ca citite", e);
+            }
+        };
+
+        markAsRead();
+    }, [conversationId, supabase]);
+
     // INCARCARE DATE (User + Istoric Mesaje + Detalii Casa)
     useEffect(() => {
         const fetchHistory = async () => {

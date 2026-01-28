@@ -109,6 +109,9 @@ class ConversationOut(BaseModel):
     updated_at: datetime
 
     listing: Optional[ListingTiny] = None
+    has_unread: bool = False        
+    unread_count: int = 0           
+    last_message: Optional[str] = None
    
     
     class Config:
@@ -129,7 +132,7 @@ class LeadOut(BaseModel):
     id: int
     client_name: str
     client_phone: str
-    message: Optional[str]
+    message: Optional[str] = None
     status: str
     created_at: datetime
     class Config:

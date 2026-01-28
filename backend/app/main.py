@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException, Query, Header
 from pydantic import BaseModel
 from supabase import create_client, Client
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func, or_
+from sqlalchemy import and_, desc, func, or_
 from typing import List, Optional
 from fastapi.middleware.cors import CORSMiddleware 
 from sqlalchemy.orm import Session, joinedload
@@ -608,17 +608,47 @@ def get_my_conversations(
 ):
     if not authorization: raise HTTPException(401)
     
-    token = authorization.split(" ")[1]
-    user_id = str(supabase.auth.get_user(token).user.id)
+    try:
+        token = authorization.split(" ")[1]
+        user_auth = supabase.auth.get_user(token)
+        user_id = str(user_auth.user.id)
+    except:
+        raise HTTPException(401, detail="Token invalid")
 
-    # Folosim joinedload pentru a aduce si datele despre listing intr-un singur query
+    # 1. Luăm conversațiile
     conversations = db.query(models.Conversation).options(
         joinedload(models.Conversation.listing)
     ).filter(
         or_(models.Conversation.buyer_id == user_id, models.Conversation.seller_id == user_id)
     ).order_by(models.Conversation.updated_at.desc()).all()
 
-    return conversations
+    results = []
+    
+    # 2. Pentru fiecare, calculăm dacă are mesaje necitite
+    for conv in conversations:
+        # Numărăm mesajele unde: conversația e asta, NU sunt eu expeditorul, și is_read e False
+        unread_count = db.query(models.Message).filter(
+            models.Message.conversation_id == conv.id,
+            models.Message.sender_id != user_id, 
+            models.Message.is_read == False
+        ).count()
+
+        # Luăm ultimul mesaj pentru preview
+        last_msg = db.query(models.Message).filter(
+            models.Message.conversation_id == conv.id
+        ).order_by(desc(models.Message.created_at)).first()
+
+        # Convertim la schemă
+        conv_data = schemas.ConversationOut.model_validate(conv)
+        
+        # Populăm datele extra
+        conv_data.has_unread = (unread_count > 0)
+        conv_data.unread_count = unread_count
+        conv_data.last_message = last_msg.content if last_msg else "Începe discuția"
+
+        results.append(conv_data)
+
+    return results
 
 # 16. VEZI MESAJELE DINTR-O CONVERSATIE
 @app.get("/chat/conversations/{conversation_id}/messages", response_model=List[schemas.MessageOut])
@@ -781,15 +811,6 @@ def create_cma_pdf(
     
     return FileResponse(file_path, media_type='application/pdf', filename=f"CMA_Analiza.pdf")
 
-# 2. VEZI LEAD-URILE MELE
-@app.get("/agent/leads", response_model=List[schemas.LeadOut])
-def get_my_leads(authorization: str = Header(None), db: Session = Depends(get_db)):
-    if not authorization: raise HTTPException(401)
-    token = authorization.split(" ")[1]
-    user_id = str(supabase.auth.get_user(token).user.id)
-    
-    # Returnăm lead-urile asociate acestui agent
-    return db.query(models.Lead).filter(models.Lead.agent_id == user_id).all()
 
 
 @app.put("/agent/profile", response_model=schemas.AgentProfileCreate)
@@ -970,6 +991,113 @@ def create_review(
 
     return {"message": "Recenzie salvată", "new_rating": new_rating}
 
+
+
+@app.get("/agent/leads", response_model=List[schemas.LeadOut])
+def get_agent_leads(
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    if not authorization: raise HTTPException(401)
+    
+    # 1. Obținem ID-ul Agentului curent
+    try:
+        token = authorization.split(" ")[1]
+        user_auth = supabase.auth.get_user(token)
+        agent_id = str(user_auth.user.id)
+    except:
+        raise HTTPException(401, detail="Token invalid")
+
+    # 2. Căutăm conversațiile
+    conversations = db.query(models.Conversation).filter(
+        models.Conversation.seller_id == agent_id
+    ).order_by(desc(models.Conversation.updated_at)).all()
+
+    formatted_leads = []
+
+    # Funcție helper pentru a curăța ID-urile (siguranță maximă)
+    def normalize_id(uid):
+        return str(uid).strip().lower().replace('"', '').replace("'", "")
+
+    clean_agent_id = normalize_id(agent_id)
+
+    for conv in conversations:
+        # Luăm ultimul mesaj
+        last_msg = db.query(models.Message).filter(
+            models.Message.conversation_id == conv.id
+        ).order_by(desc(models.Message.created_at)).first()
+
+        client_display = f"Client #{str(conv.buyer_id)[:5]}" 
+
+        # --- LOGICĂ STATUS CORECTATĂ ---
+        status = "CONTACTAT"
+        preview_text = "Conversație începută"
+
+        if last_msg:
+            clean_sender_id = normalize_id(last_msg.sender_id)
+            
+            # Construim textul de preview
+            if clean_sender_id == clean_agent_id:
+                sender_name = "Tu"
+            else:
+                sender_name = client_display
+            
+            preview_text = f"{sender_name}: {last_msg.content}"
+
+            # Determinăm Statusul
+            if clean_sender_id == clean_agent_id:
+                # 1. Dacă ultimul mesaj e trimis de MINE (Agent)
+                status = "RĂSPUNS"
+            elif not last_msg.is_read:
+                # 2. Dacă e trimis de EL (Client) și e NECITIT
+                status = "MESAJ NOU"
+            else:
+                # 3. Dacă e trimis de EL (Client) și e CITIT
+                status = "CONTACTAT"
+
+        formatted_leads.append({
+            "id": conv.id,
+            "client_name": client_display,
+            "client_phone": "Vezi Chat", 
+            "message": preview_text,
+            "created_at": conv.updated_at if conv.updated_at else conv.created_at,
+            "status": status
+        })
+    
+    return formatted_leads
+
+@app.put("/chat/conversations/{conversation_id}/read")
+def mark_conversation_as_read(
+    conversation_id: int,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    if not authorization: raise HTTPException(401)
+    
+    try:
+        token = authorization.split(" ")[1]
+        user_auth = supabase.auth.get_user(token)
+        current_user_id = str(user_auth.user.id)
+    except:
+        raise HTTPException(401, detail="Token invalid")
+
+    # 1. Identificăm mesajele necitite care NU sunt ale mele
+    # (Adică mesajele primite de la celălalt)
+    messages_to_update = db.query(models.Message).filter(
+        models.Message.conversation_id == conversation_id,
+        models.Message.sender_id != current_user_id, # Mesaje primite
+        models.Message.is_read == False # Doar cele necitite
+    ).all()
+
+    count = len(messages_to_update)
+
+    # 2. Le actualizăm manual (metodă sigură)
+    for msg in messages_to_update:
+        msg.is_read = True
+    
+    db.commit()
+    
+    return {"message": "Conversație actualizată", "updated_count": count}
 
 @app.get("/")
 def read_root():
