@@ -70,3 +70,46 @@ class ClaimRequestOut(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+# --- CHAT SCHEMAS ---
+
+# Când trimiți un mesaj nou
+class MessageCreate(BaseModel):
+    listing_id: int # Avem nevoie de asta ca să știm unde să creăm conversația dacă nu există
+    content: str
+
+# Când returnăm un mesaj către Frontend
+class MessageOut(BaseModel):
+    id: int
+    conversation_id: int
+    sender_id: Union[str, UUID]
+    content: str
+    created_at: datetime
+    is_read: bool
+
+    class Config:
+        from_attributes = True
+
+class ListingTiny(BaseModel):
+    id: int
+    title: str
+    image_url: Optional[str] = None
+    price_eur: int
+
+    class Config:
+        from_attributes = True
+
+# Când returnăm o conversație (Lista de chat-uri din Inbox)
+class ConversationOut(BaseModel):
+    id: int
+    listing_id: int
+    buyer_id: Union[str, UUID]   
+    seller_id: Union[str, UUID]
+    updated_at: datetime
+
+    listing: Optional[ListingTiny] = None
+   
+    
+    class Config:
+        from_attributes = True

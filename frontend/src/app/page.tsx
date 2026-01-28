@@ -8,7 +8,7 @@ import Navbar from '@/components/Navbar';
 import { Listing } from '@/types';
 import { useSearchParams } from 'next/navigation';
 
-// Importăm harta dinamic
+
 const MapView = dynamic(() => import('@/components/Map'), {
   ssr: false,
   loading: () => <div className="h-full w-full bg-gray-100 flex items-center justify-center text-gray-400">Se încarcă harta...</div>
@@ -62,17 +62,17 @@ function HomeContent() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-white font-sans overflow-hidden">
-      {/* 1. Navbar (Fix Sus) */}
+      {/* Navbar */}
       <div className="flex-none z-50">
          <Navbar />
       </div>
 
-      {/* 2. FilterBar (Sub Navbar) */}
+      {/* FilterBar */}
       <div className="flex-none z-40 shadow-sm bg-white relative">
         <FilterBar />
       </div>
 
-      {/* 3. Conținut Principal (Split View) */}
+      {/* Conținut Principal */}
       <main className="flex-1 flex flex-col md:flex-row relative overflow-hidden">
         
         {/* --- ZONA A: LISTA --- */}

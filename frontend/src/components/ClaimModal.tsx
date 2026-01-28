@@ -17,7 +17,7 @@ export default function ClaimModal({ listingId, isOpen, onClose }: ClaimModalPro
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     
-    // State pentru a ne asigura că suntem pe client (Next.js SSR fix)
+    // State pentru a ne asigura ca suntem pe client (Next.js SSR fix)
     const [mounted, setMounted] = useState(false);
 
     const supabase = createClient();
@@ -27,7 +27,7 @@ export default function ClaimModal({ listingId, isOpen, onClose }: ClaimModalPro
         return () => setMounted(false);
     }, []);
 
-    // Resetăm starea când se închide modalul
+    // Resetam starea când se inchide modalul
     useEffect(() => {
         if (!isOpen) {
             setSuccess(false);
@@ -36,12 +36,12 @@ export default function ClaimModal({ listingId, isOpen, onClose }: ClaimModalPro
         }
     }, [isOpen]);
 
-    // Dacă nu e deschis sau nu e montat pe client, nu randăm nimic
+    // Daca nu e deschis sau nu e montat pe client, nu randam nimic
     if (!isOpen || !mounted) return null;
 
     const handleSubmit = async () => {
         if (!file || !phone) {
-            alert("Te rugăm să completezi telefonul și să încarci un document.");
+            alert("Te rugam sa completezi telefonul și sa incarci un document.");
             return;
         }
         setLoading(true);
@@ -50,7 +50,7 @@ export default function ClaimModal({ listingId, isOpen, onClose }: ClaimModalPro
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) return;
 
-            // 1. Upload în Bucket-ul 'claim-documents' (Privat)
+            // 1. Upload in Bucket-ul 'claim-documents' (Privat)
             const filePath = `${session.user.id}/${Date.now()}_${file.name}`; // Aceasta este CALEA
             
             const { error: uploadError } = await supabase.storage
@@ -85,14 +85,14 @@ export default function ClaimModal({ listingId, isOpen, onClose }: ClaimModalPro
         }
     };
 
-    // --- SOLUȚIA CU PORTAL ---
-    // Mutăm acest HTML direct în <body>, scotându-l din sidebar
+    // --- SOLUTIA CU PORTAL ---
+    // Mutam acest HTML direct in <body>, scotându-l din sidebar
     return createPortal(
         <div 
             className="fixed inset-0 z-9999 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-            onClick={onClose} // Dacă dai click pe fundal, se închide
+            onClick={onClose} // Daca dai click pe fundal, se inchide
         >
-            {/* stopPropagation e vital: Click pe modal NU trebuie să închidă modalul */}
+            {/* stopPropagation e vital: Click pe modal NU trebuie sa inchida modalul */}
             <div 
                 className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl relative animate-in fade-in zoom-in duration-200"
                 onClick={(e) => e.stopPropagation()} 
@@ -107,19 +107,19 @@ export default function ClaimModal({ listingId, isOpen, onClose }: ClaimModalPro
                 {success ? (
                     <div className="text-center py-8">
                         <CheckCircle size={48} className="text-green-500 mx-auto mb-4" />
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">Cerere Trimisă!</h3>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">Cerere Trimisa!</h3>
                         <p className="text-gray-500 mb-6 text-sm">
                             Un administrator va verifica documentele. Vei fi notificat pe telefonul <b>{phone}</b>.
                         </p>
                         <button onClick={onClose} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition">
-                            Închide
+                            inchide
                         </button>
                     </div>
                 ) : (
                     <>
-                        <h2 className="text-xl font-bold text-gray-900 mb-1">Revendică Proprietatea</h2>
+                        <h2 className="text-xl font-bold text-gray-900 mb-1">Revendica Proprietatea</h2>
                         <p className="text-sm text-gray-500 mb-6">
-                            Încarcă o dovadă (Factură utilități / Extras CF) pentru a prelua administrarea acestui anunț.
+                            incarca o dovada (Factura utilitați / Extras CF) pentru a prelua administrarea acestui anunț.
                         </p>
 
                         <div className="space-y-4">
@@ -152,7 +152,7 @@ export default function ClaimModal({ listingId, isOpen, onClose }: ClaimModalPro
                                     ) : (
                                         <>
                                             <Upload size={32} />
-                                            <span className="text-sm font-medium">Încarcă Document</span>
+                                            <span className="text-sm font-medium">incarca Document</span>
                                             <span className="text-xs text-gray-400">(.jpg, .png, .pdf)</span>
                                         </>
                                     )}
@@ -176,6 +176,6 @@ export default function ClaimModal({ listingId, isOpen, onClose }: ClaimModalPro
                 )}
             </div>
         </div>,
-        document.body // <--- Aici este secretul: randăm direct în BODY
+        document.body
     );
 }

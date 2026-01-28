@@ -14,13 +14,11 @@ export default function ListingCard({ listing }: { listing: Listing }) {
 
     const supabase = createClient();
     
-    // State-uri
     const [isFavorite, setIsFavorite] = useState(false);
     const [favCount, setFavCount] = useState(listing.favorites_count || 0);
     const [isLoadingFav, setIsLoadingFav] = useState(false);
     const [isClaimOpen, setIsClaimOpen] = useState(false);
     
-    // Logica: Putem revendica doar dacă NU e deja NidusHomes și NU e deja revendicat
     const canClaim = listing.source_platform !== 'NidusHomes' && !listing.is_claimed;
 
     const finalPrice = listing.price || listing.price_eur || 0;
@@ -114,7 +112,7 @@ export default function ListingCard({ listing }: { listing: Listing }) {
                 <button
                     onClick={toggleFavorite}
                     disabled={isLoadingFav}
-                    className={`absolute top-3 right-3 z-10 p-2 rounded-full transition-all duration-300 flex items-center gap-1 ${
+                    className={`absolute top-3 right-3 z-1 p-2 rounded-full transition-all duration-300 flex items-center gap-1 ${
                         isFavorite
                         ? "bg-white text-red-500 shadow-md scale-105"
                         : "bg-black/20 text-white hover:bg-white hover:text-red-500 backdrop-blur-sm"
@@ -147,7 +145,7 @@ export default function ListingCard({ listing }: { listing: Listing }) {
                         Iași
                     </div>
                     
-                    {/* Badge Sursa (Mic, jos stânga pe imagine) */}
+                    {/* Badge Sursa */}
                     <div className="absolute bottom-2 left-2 text-white">
                         <div className="text-[9px] text-gray-300 font-medium bg-black/40 px-1.5 py-0.5 rounded backdrop-blur-md uppercase">
                             {listing.source_platform || 'Nidus'}
@@ -157,7 +155,7 @@ export default function ListingCard({ listing }: { listing: Listing }) {
 
                 <Link href={`/listing/${listing.id}`} className="flex flex-col flex-1 p-4">
                     
-                    {/* Preț & Titlu */}
+                    {/* Pret & Titlu */}
                     <div className="flex justify-between items-start mb-1">
                         <p className="text-blue-600 font-black text-2xl">
                             {displayPrice.toLocaleString()} € {isRent && <span className="text-sm text-gray-500 font-normal">/ luna</span>}
@@ -168,13 +166,13 @@ export default function ListingCard({ listing }: { listing: Listing }) {
                         {listing.title}
                     </h3>
 
-                    {/* Locație (Subtitlu 1) */}
+                    {/* Locatie */}
                     <div className="flex items-center text-slate-500 text-xs mb-2 gap-1.5">
                         <MapPin size={14} className="text-blue-500 shrink-0" />
                         <span className="truncate">{listing.neighborhood || 'Iași'}</span>
                     </div>
 
-                    {/* --- ZONA REVENDICARE (Subtitlu 2 / Call to Action) --- */}
+                    {/* ZONA REVENDICARE */}
                     {canClaim && (
                         <div 
                             onClick={(e) => {
@@ -193,9 +191,8 @@ export default function ListingCard({ listing }: { listing: Listing }) {
                             </span>
                         </div>
                     )}
-                    {/* --------------------------------------------------- */}
 
-                    {/* Facilități (Sticky bottom) */}
+                    {/* Facilitati */}
                     <div className="flex items-center gap-3 text-slate-700 text-xs font-medium border-t border-gray-50 pt-3 mt-auto">
                         <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded" title="Camere">
                             <BedDouble size={14} className="text-slate-400" />

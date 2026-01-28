@@ -13,7 +13,7 @@ function MapController({ activeListing, clusterGroupRef }: { activeListing: any,
         if (!map) return;
 
         if (activeListing) {
-            // --- LOGICĂ PENTRU LISTING ACTIV ---
+            
             const lat = Number(activeListing.latitude ?? activeListing.lat);
             const lng = Number(activeListing.longitude ?? activeListing.lng ?? activeListing.lon);
 
@@ -46,13 +46,9 @@ function MapController({ activeListing, clusterGroupRef }: { activeListing: any,
                 }
             }
         } else {
-            // --- LOGICĂ PENTRU RESET VIEW (AICI ERA EROAREA) ---
             try {
-                // Încercăm animația
                 map.flyTo([47.1585, 27.6014], 13, { duration: 1.5 });
             } catch (e) {
-                // Dacă Leaflet dă eroare (NaN), folosim setarea instantanee care nu dă greș
-                // console.warn("Harta nu e gata pentru animație, folosim setView");
                 map.setView([47.1585, 27.6014], 13);
             }
             map.closePopup();

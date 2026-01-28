@@ -15,7 +15,7 @@ export default function MyListingsPage() {
     const router = useRouter();
     const supabase = createClient();
 
-    // Functie sigura pentru formatarea datei
+    // Functie pentru formatarea datei
     const formatDate = (dateString: string | null | undefined) => {
         if (!dateString) return 'Data necunoscuta';
         const date = new Date(dateString);
@@ -56,7 +56,7 @@ export default function MyListingsPage() {
         fetchData();
     }, [router, supabase]);
 
-    // 2. Functia de Ștergere
+    // 2. Functia de Stergere
     const handleDelete = async (id: number) => {
         if (!confirm("Sigur vrei sa ștergi acest anunt? Actiunea este ireversibila.")) return;
 
@@ -78,9 +78,9 @@ export default function MyListingsPage() {
         }
     };
 
-    // 3. Functia de Resetare Vizualizări (NOU)
+    // 3. Functia de Resetare Vizualizari
     const handleResetViews = async (id: number) => {
-        if (!confirm("Sigur vrei să resetezi contorul de vizualizări la 0?")) return;
+        if (!confirm("Sigur vrei sa resetezi contorul de vizualizari la 0?")) return;
         
         setResettingId(id);
         
@@ -93,7 +93,7 @@ export default function MyListingsPage() {
                 }
             });
 
-            // Actualizăm local lista ca să arate 0 instant
+            // Actualizam local lista ca sa arate 0 instant
             setListings(prev => prev.map(item => 
                 item.id === id ? { ...item, views: 0 } : item
             ));
@@ -164,16 +164,16 @@ export default function MyListingsPage() {
 
                                     {/* Zona Statistici (NOU) */}
                                     <div className="bg-slate-50 rounded-lg p-2 mb-3 border border-slate-100 flex items-center justify-between">
-                                        <div className="flex items-center gap-1.5 text-slate-600 text-sm font-semibold" title="De câte ori a fost văzut anunțul">
+                                        <div className="flex items-center gap-1.5 text-slate-600 text-sm font-semibold" title="De câte ori a fost vazut anunțul">
                                             <Eye size={16} className="text-blue-500"/>
-                                            {item.views || 0} Vizualizări
+                                            {item.views || 0} Vizualizari
                                         </div>
                                         
                                         <button 
                                             onClick={() => handleResetViews(item.id)}
                                             disabled={resettingId === item.id}
                                             className="text-xs flex items-center gap-1 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 px-2 py-1 rounded text-slate-500 transition-colors"
-                                            title="Resetează contorul la 0"
+                                            title="Reseteaza contorul la 0"
                                         >
                                             {resettingId === item.id ? (
                                                 <Loader2 size={12} className="animate-spin" />

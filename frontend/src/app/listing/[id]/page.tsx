@@ -10,6 +10,7 @@ import PriceHistoryChart from '@/components/PriceHistoryChart';
 import { Separator } from '@/components/ui/separator';
 import ImageGallery from '@/components/ImageGallery';
 import { Eye, Heart } from 'lucide-react';
+import ContactForm from '@/components/ContactForm';
 
 
 const MiniMap = dynamic(() => import('@/components/MiniMap'), {
@@ -98,7 +99,10 @@ export default function ListingPage() {
                                     </div>
                                 </div>
                             )}
-
+                            <Separator className="my-8"/>
+                            <div>
+                            <ContactForm listingId={listing.id} ownerId={listing.owner_id} />
+                            </div>
                         </div>
                     </div>
 
@@ -198,9 +202,8 @@ export default function ListingPage() {
                                             </div>
                                         </div>
                                     </div>
-                            )}
+                            )}  
                         </div>
-
                     </div>
                 </div>
             </main>

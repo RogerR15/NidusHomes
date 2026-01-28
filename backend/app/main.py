@@ -1,10 +1,12 @@
 import os
 from fastapi import FastAPI, Depends, HTTPException, Query, Header
+from pydantic import BaseModel
 from supabase import create_client, Client
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, func, or_
 from typing import List, Optional
 from fastapi.middleware.cors import CORSMiddleware 
+from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.database import engine, get_db
@@ -18,11 +20,13 @@ app = FastAPI(title="Ro-Zillow API")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
+ADMIN_USER_ID = os.getenv("ADMIN_USER_ID")
+
 try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 except Exception as e:
     print(f"Eroare la initializarea Supabase: {e}")
-# ------------------------------------------------
+
 
 # CONFIGURARE CORS
 app.add_middleware(
@@ -32,7 +36,7 @@ app.add_middleware(
     allow_methods=["*"], 
     allow_headers=["*"], 
 )
-# ------------------------------------------------
+
 
 # 1. GET LISTINGS (Cautare Avansata)
 @app.get("/listings", response_model=List[schemas.ListingOut])
@@ -65,7 +69,7 @@ def get_listings(
     if neighborhood:
         query = query.filter(models.Listing.neighborhood.ilike(f"%{neighborhood}%"))
 
-    # Ordonare (cele mai noi primele) și Paginare
+    # Ordonare (cele mai noi primele) si Paginare
     listings = query.order_by(desc(models.Listing.updated_at)).limit(limit).offset(offset).all()
     
     return listings 
@@ -105,7 +109,7 @@ def create_listing(
     try:
         token = authorization.split(" ")[1]
         user = supabase.auth.get_user(token)
-        # FIX: Convertim ID-ul în string simplu
+        # FIX: Convertim ID-ul in string simplu
         user_id = str(user.user.id) 
     except Exception as e:
         print(f"Auth Error: {e}")
@@ -114,7 +118,7 @@ def create_listing(
     # 2. Convertim coordonatele
     geom_point = f'POINT({listing.longitude} {listing.latitude})'
 
-    # 3. Salvăm în DB
+    # 3. Salvam in DB
     new_listing = models.Listing(
         owner_id=user_id,
         title=listing.title,
@@ -152,7 +156,7 @@ def create_listing(
     return new_listing
 
 
-# 4. GET MY LISTINGS (Doar anunțurile userului logat)
+# 4. GET MY LISTINGS (Doar anunturile userului logat)
 @app.get("/my-listings", response_model=List[schemas.ListingOut])
 def get_my_listings(
     authorization: str = Header(None), 
@@ -168,11 +172,11 @@ def get_my_listings(
     except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid Token")
 
-    # Returnăm doar anunțurile unde owner_id este egal cu ID-ul userului
+    # Returnam doar anunturile unde owner_id este egal cu ID-ul userului
     listings = db.query(models.Listing).filter(models.Listing.owner_id == user_id).all()
     return listings
 
-# 5. DELETE LISTING (Șterge un anunț)
+# 5. DELETE LISTING (sterge un anunt)
 @app.delete("/listings/{listing_id}", status_code=204)
 def delete_listing(
     listing_id: int,
@@ -189,22 +193,22 @@ def delete_listing(
     except:
         raise HTTPException(status_code=401, detail="Invalid Token")
 
-    # Căutăm anunțul
+    # Cautam anuntul
     listing = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
     
     if not listing:
-        raise HTTPException(status_code=404, detail="Anunțul nu există")
+        raise HTTPException(status_code=404, detail="Anuntul nu exista")
 
-    # VERIFICARE CRITICĂ: Userul are voie să șteargă doar propriile anunțuri
+    # VERIFICARE: Userul are voie sa stearga doar propriile anunturi
     if listing.owner_id != user_id:
-        raise HTTPException(status_code=403, detail="Nu ai permisiunea să ștergi acest anunț")
+        raise HTTPException(status_code=403, detail="Nu ai permisiunea sa stergi acest anunt")
 
     db.delete(listing)
     db.commit()
     return None
 
 
-# 6. UPDATE LISTING (Editează un anunț)
+# 6. UPDATE LISTING (Editeaza un anunt)
 @app.put("/listings/{listing_id}", response_model=schemas.ListingOut)
 def update_listing(
     listing_id: int,
@@ -222,26 +226,26 @@ def update_listing(
     except:
         raise HTTPException(status_code=401, detail="Invalid Token")
 
-    # 2. Căutăm anunțul
+    # 2. Cautam anuntul
     db_listing = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
     if not db_listing:
-        raise HTTPException(status_code=404, detail="Anunțul nu există")
+        raise HTTPException(status_code=404, detail="Anuntul nu exista")
 
     # --- AICI ESTE MODIFICAREA (Pasul 3) ---
-    # Definim o funcție mică pentru a curăța ID-urile de spații sau ghilimele
+    # Definim o functie mica pentru a curata ID-urile de spatii sau ghilimele
     def normalize_id(uid):
         return str(uid).strip().lower().replace('"', '').replace("'", "")
 
     id_db_clean = normalize_id(db_listing.owner_id)
     id_token_clean = normalize_id(user_id)
 
-    print(f"DEBUG FIX: Comparăm '{id_db_clean}' cu '{id_token_clean}'")
+    print(f"DEBUG FIX: Comparam '{id_db_clean}' cu '{id_token_clean}'")
 
     if id_db_clean != id_token_clean:
-        raise HTTPException(status_code=403, detail="Nu ai voie să modifici acest anunț")
+        raise HTTPException(status_code=403, detail="Nu ai voie sa modifici acest anunt")
     # ---------------------------------------
 
-    # 4. Actualizăm câmpurile
+    # 4. Actualizam câmpurile
     db_listing.title = listing_update.title
     db_listing.description = listing_update.description
     db_listing.price_eur = listing_update.price_eur
@@ -253,13 +257,13 @@ def update_listing(
     db_listing.year_built = listing_update.year_built
     db_listing.address = listing_update.address
     
-    # Actualizăm locația pe hartă
+    # Actualizam locatia pe harta
     db_listing.geom = f'POINT({listing_update.longitude} {listing_update.latitude})'
     
     db_listing.latitude = listing_update.latitude
     db_listing.longitude = listing_update.longitude
 
-    # Actualizăm imaginile DOAR dacă userul a trimis altele noi
+    # Actualizam imaginile DOAR daca userul a trimis altele noi
     if listing_update.images and len(listing_update.images) > 0:
          db_listing.images = listing_update.images
          db_listing.image_url = listing_update.images[0]
@@ -277,7 +281,7 @@ def toggle_favorite(
 ):
     # 1. Auth Check
     if not authorization:
-        raise HTTPException(status_code=401, detail="Trebuie să fii logat.")
+        raise HTTPException(status_code=401, detail="Trebuie sa fii logat.")
     try:
         token = authorization.split(" ")[1]
         user = supabase.auth.get_user(token)
@@ -285,37 +289,37 @@ def toggle_favorite(
     except:
         raise HTTPException(status_code=401, detail="Token invalid.")
 
-    # 2. Căutăm anunțul
+    # 2. Cautam anuntul
     listing = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
     if not listing:
-        raise HTTPException(status_code=404, detail="Anunțul nu există.")
+        raise HTTPException(status_code=404, detail="Anuntul nu exista.")
 
-    # 3. Verificăm în tabelul tău 'favorites'
+    # 3. Verificam in tabelul tau 'favorites'
     existing_fav = db.query(models.Favorite).filter(
         models.Favorite.user_id == user_id,
         models.Favorite.listing_id == listing_id
     ).first()
 
     if existing_fav:
-        # --- CAZUL 1: E deja salvat -> ÎL ȘTERGEM (UNSAVE) ---
+        # --- CAZUL 1: E deja salvat -> IL STERGEM (UNSAVE) ---
         db.delete(existing_fav)
         
-        # Decrementăm contorul
+        # Decrementam contorul
         if listing.favorites_count and listing.favorites_count > 0:
             listing.favorites_count -= 1
         
         message = "Removed from favorites"
         is_favorited = False
     else:
-        # --- CAZUL 2: Nu e salvat -> ÎL ADĂUGĂM (SAVE) ---
-        # Aici folosim structura ta (id se autogenerează)
+        # --- CAZUL 2: Nu e salvat -> IL ADAUGAM (SAVE) ---
+        # Aici folosim structura ta (id se autogenereaza)
         new_fav = models.Favorite(
             user_id=user_id, 
             listing_id=listing_id
         )
         db.add(new_fav)
         
-        # Incrementăm contorul
+        # Incrementam contorul
         if listing.favorites_count is None:
             listing.favorites_count = 0
         listing.favorites_count += 1
@@ -373,25 +377,25 @@ def reset_listing_views(
     except:
         raise HTTPException(status_code=401, detail="Invalid Token")
 
-    # 2. Găsim anunțul
+    # 2. Gasim anuntul
     listing = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
     if not listing:
-        raise HTTPException(status_code=404, detail="Anunțul nu există")
+        raise HTTPException(status_code=404, detail="Anuntul nu exista")
 
-    # 3. Verificăm dacă ești proprietarul
-    # Folosim funcția de normalizare id pe care o ai deja sau comparăm direct
+    # 3. Verificam daca esti proprietarul
+    # Folosim functia de normalizare id pe care o ai deja sau comparam direct
     def normalize_id(uid):
         return str(uid).strip().lower().replace('"', '').replace("'", "")
 
     if normalize_id(listing.owner_id) != normalize_id(user_id):
-        raise HTTPException(status_code=403, detail="Nu ai voie să resetezi vizualizările acestui anunț")
+        raise HTTPException(status_code=403, detail="Nu ai voie sa resetezi vizualizarile acestui anunt")
 
-    # 4. Resetăm vizualizările
+    # 4. Resetam vizualizarile
     listing.views = 0
     db.commit()
     db.refresh(listing)
 
-    return {"message": "Vizualizări resetate cu succes", "views": 0}
+    return {"message": "Vizualizari resetate cu succes", "views": 0}
 
 
 # 10. TRIMITE CERERE REVENDICARE (User)
@@ -403,7 +407,7 @@ def submit_claim(
     db: Session = Depends(get_db)
 ):
     if not authorization:
-        raise HTTPException(status_code=401, detail="Trebuie să fii logat.")
+        raise HTTPException(status_code=401, detail="Trebuie sa fii logat.")
     
     try:
         token = authorization.split(" ")[1]
@@ -412,21 +416,21 @@ def submit_claim(
     except:
         raise HTTPException(status_code=401, detail="Token invalid.")
 
-    # Verificăm anunțul
+    # Verificam anuntul
     listing = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
     if not listing:
-        raise HTTPException(status_code=404, detail="Anunțul nu există.")
+        raise HTTPException(status_code=404, detail="Anuntul nu exista.")
     if listing.is_claimed:
-        raise HTTPException(status_code=400, detail="Anunțul este deja revendicat.")
+        raise HTTPException(status_code=400, detail="Anuntul este deja revendicat.")
 
-    # Verificăm duplicate
+    # Verificam duplicate
     existing = db.query(models.ClaimRequest).filter(
         models.ClaimRequest.listing_id == listing_id,
         models.ClaimRequest.user_id == user_id,
         models.ClaimRequest.status == 'PENDING'
     ).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Ai deja o cerere în așteptare.")
+        raise HTTPException(status_code=400, detail="Ai deja o cerere in asteptare.")
 
     new_claim = models.ClaimRequest(
         user_id=user_id,
@@ -446,42 +450,52 @@ def get_pending_claims(
     authorization: str = Header(None),
     db: Session = Depends(get_db)
 ):
-    # TODO: Aici ar trebui să verifici dacă user_id == ADMIN_ID_UL_TAU
-    # Momentan lăsăm deschis doar pentru tine să vezi datele
     if not authorization:
         raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    # SECURITATE ADMIN
+    try:
+        token = authorization.split(" ")[1]
+        user = supabase.auth.get_user(token)
+        user_id = str(user.user.id)
+        
+        # Verificam daca esti TU
+        if user_id != ADMIN_USER_ID:
+            raise HTTPException(status_code=403, detail="Acces interzis. Nu esti administrator.")
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Token invalid")
         
     claims = db.query(models.ClaimRequest).filter(models.ClaimRequest.status == 'PENDING').all()
     return claims
 
-# 12. APROBĂ CERERE (Admin Action)
+# 12. APROBA CERERE
 @app.post("/admin/claims/{claim_id}/approve")
 def approve_claim(
     claim_id: int,
     authorization: str = Header(None),
     db: Session = Depends(get_db)
 ):
-    # Verificare simplă Admin (poți hardcoda ID-ul tău aici pentru siguranță reală)
-    # if user_id != "ID-UL-TAU-SUPABASE": raise HTTPException(403)
+    if not authorization: raise HTTPException(401)
+
+    # SECURITATE ADMIN
+    token = authorization.split(" ")[1]
+    requesting_user_id = str(supabase.auth.get_user(token).user.id)
+    if requesting_user_id != ADMIN_USER_ID:
+        raise HTTPException(status_code=403, detail="Acces interzis.")
 
     claim = db.query(models.ClaimRequest).filter(models.ClaimRequest.id == claim_id).first()
     if not claim:
-        raise HTTPException(status_code=404, detail="Cererea nu există.")
-
-    if claim.status != 'PENDING':
-        raise HTTPException(status_code=400, detail="Cererea nu este în așteptare.")
+        raise HTTPException(status_code=404, detail="Cererea nu exista.")
 
     listing = db.query(models.Listing).filter(models.Listing.id == claim.listing_id).first()
     
-    # --- TRANSFERUL REAL DE PROPRIETATE ---
-    listing.owner_id = claim.user_id      # Noul proprietar
-    listing.is_claimed = True             # Marcat ca revendicat
-    listing.source_platform = "NidusHomes" # Devine 'Oficial'
-    
+    listing.owner_id = claim.user_id
+    listing.is_claimed = True
+    listing.source_platform = "NidusHomes"
     claim.status = "APPROVED"
     
     db.commit()
-    return {"message": "Aprobat cu succes! Proprietatea a fost transferată."}
+    return {"message": "Aprobat cu succes!"}
 
 # 13. RESPINGE CERERE
 @app.post("/admin/claims/{claim_id}/reject")
@@ -490,13 +504,216 @@ def reject_claim(
     authorization: str = Header(None),
     db: Session = Depends(get_db)
 ):
+    if not authorization: raise HTTPException(401)
+
+    # SECURITATE ADMIN
+    token = authorization.split(" ")[1]
+    requesting_user_id = str(supabase.auth.get_user(token).user.id)
+    if requesting_user_id != ADMIN_USER_ID:
+        raise HTTPException(status_code=403, detail="Acces interzis.")
+
     claim = db.query(models.ClaimRequest).filter(models.ClaimRequest.id == claim_id).first()
-    if not claim:
-        raise HTTPException(status_code=404, detail="Cererea nu există.")
+    if not claim: raise HTTPException(404)
 
     claim.status = "REJECTED"
     db.commit()
-    return {"message": "Cerere respinsă."}
+    return {"message": "Cerere respinsa."}
+
+
+
+# ZONA CHAT
+
+# 14. TRIMITE MESAJ (Initiaza conversatie daca nu exista)
+@app.post("/chat/send", response_model=schemas.MessageOut)
+def send_message(
+    msg_data: schemas.MessageCreate,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    if not authorization: raise HTTPException(401)
+    
+    # 1. Cine trimite?
+    try:
+        token = authorization.split(" ")[1]
+        sender = supabase.auth.get_user(token)
+        sender_id = str(sender.user.id)
+    except:
+        raise HTTPException(401, detail="Token invalid")
+
+    # 2. Gasim anuntul ca sa vedem cine e proprietarul (Seller)
+    listing = db.query(models.Listing).filter(models.Listing.id == msg_data.listing_id).first()
+    if not listing:
+        raise HTTPException(404, detail="Anuntul nu mai exista")
+    
+    seller_id = listing.owner_id
+    
+    # Nu iti poti trimite mesaj tie insuti
+    # (Comentat pentru teste, dar e bine de avut)
+    # if sender_id == seller_id:
+    #     raise HTTPException(400, detail="Nu poti trimite mesaje propriului anunt.")
+
+    # 3. Verificam daca exista deja conversatia
+    # Logica: Conversatia este unica per (listing_id, buyer_id)
+    # Daca senderul e buyerul -> cautam (listing_id, sender_id)
+    # Daca senderul e sellerul -> Nu putem initia noi conversatia ca seller de pe pagina anuntului de obicei, 
+    # dar presupunem aici scenariul clasic: Buyerul contacteaza Sellerul.
+    
+    conversation = db.query(models.Conversation).filter(
+        models.Conversation.listing_id == msg_data.listing_id,
+        models.Conversation.buyer_id == sender_id 
+    ).first()
+
+    if not conversation:
+        # Cream conversatie noua
+        conversation = models.Conversation(
+            listing_id=msg_data.listing_id,
+            buyer_id=sender_id,
+            seller_id=seller_id
+        )
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+
+    # 4. Adaugam Mesajul
+    new_message = models.Message(
+        conversation_id=conversation.id,
+        sender_id=sender_id,
+        content=msg_data.content
+    )
+    db.add(new_message)
+    
+    # Actualizam data conversatiei (ca sa apara prima in lista)
+    conversation.updated_at = func.now()
+    
+    db.commit()
+    db.refresh(new_message)
+
+    return new_message
+
+# 15. LISTA CONVERSATII (Inbox-ul meu)
+@app.get("/chat/conversations", response_model=List[schemas.ConversationOut])
+def get_my_conversations(
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    if not authorization: raise HTTPException(401)
+    
+    token = authorization.split(" ")[1]
+    user_id = str(supabase.auth.get_user(token).user.id)
+
+    # Folosim joinedload pentru a aduce si datele despre listing intr-un singur query
+    conversations = db.query(models.Conversation).options(
+        joinedload(models.Conversation.listing)
+    ).filter(
+        or_(models.Conversation.buyer_id == user_id, models.Conversation.seller_id == user_id)
+    ).order_by(models.Conversation.updated_at.desc()).all()
+
+    return conversations
+
+# 16. VEZI MESAJELE DINTR-O CONVERSATIE
+@app.get("/chat/conversations/{conversation_id}/messages", response_model=List[schemas.MessageOut])
+def get_messages(
+    conversation_id: int,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    if not authorization: raise HTTPException(401)
+    
+    # Securitate: Verificam daca faci parte din conversatie!
+    token = authorization.split(" ")[1]
+    user_id = str(supabase.auth.get_user(token).user.id)
+
+    conversation = db.query(models.Conversation).filter(models.Conversation.id == conversation_id).first()
+    if not conversation:
+        raise HTTPException(404, detail="Conversatia nu exista")
+
+    if str(conversation.buyer_id) != user_id and str(conversation.seller_id) != user_id:
+        raise HTTPException(403, detail="Nu ai acces la aceasta conversatie.")
+
+    # print(f"DEBUG:")
+    # print(f"EU (Cel logat):   {user_id}")
+    # print(f"Cumparator Conv:  {conversation.buyer_id}")
+    # print(f"Vanzator Conv:    {conversation.seller_id}")
+
+
+    messages = db.query(models.Message).filter(
+        models.Message.conversation_id == conversation_id
+    ).order_by(models.Message.created_at.asc()).all()
+
+    return messages
+
+# 17. VEZI DETALIILE UNEI CONVERSATII
+@app.get("/chat/conversations/{conversation_id}", response_model=schemas.ConversationOut)
+def get_conversation_details(
+    conversation_id: int,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    if not authorization: raise HTTPException(401)
+    token = authorization.split(" ")[1]
+    user_id = str(supabase.auth.get_user(token).user.id)
+
+    # Aducem conversatia + listing-ul
+    conversation = db.query(models.Conversation).options(
+        joinedload(models.Conversation.listing)
+    ).filter(models.Conversation.id == conversation_id).first()
+
+    if not conversation:
+        raise HTTPException(404, detail="Conversatia nu exista")
+
+    # Verificare securitate
+    if str(conversation.buyer_id) != user_id and str(conversation.seller_id) != user_id:
+        raise HTTPException(403, detail="Nu ai acces.")
+
+    return conversation
+
+
+class ReplyRequest(BaseModel):
+    content: str
+
+# 18. RASPUNDE LA CONVERSATIE (Reply)
+@app.post("/chat/conversations/{conversation_id}/reply", response_model=schemas.MessageOut)
+def reply_to_conversation(
+    conversation_id: int,
+    reply: ReplyRequest,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    if not authorization: raise HTTPException(401)
+    
+    # 1. Cine trimite?
+    try:
+        token = authorization.split(" ")[1]
+        sender = supabase.auth.get_user(token)
+        sender_id = str(sender.user.id)
+    except:
+        raise HTTPException(401, detail="Token invalid")
+
+    # 2. Verificam conversatia
+    conversation = db.query(models.Conversation).filter(models.Conversation.id == conversation_id).first()
+    if not conversation:
+        raise HTTPException(404, detail="Conversatia nu exista")
+
+    if str(conversation.buyer_id) != sender_id and str(conversation.seller_id) != sender_id:
+        raise HTTPException(403, detail="Nu ai acces aici.")
+
+
+    # 4. Adaugam mesajul
+    new_message = models.Message(
+        conversation_id=conversation.id,
+        sender_id=sender_id,
+        content=reply.content
+    )
+    db.add(new_message)
+    
+    # Actualizam timestamp-ul conversatiei
+    conversation.updated_at = func.now()
+    
+    db.commit()
+    db.refresh(new_message)
+
+    return new_message
+
 
 @app.get("/")
 def read_root():

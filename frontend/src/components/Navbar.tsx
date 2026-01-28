@@ -9,6 +9,8 @@ import {
     ChevronDown,
     LayoutDashboard,
     Layout,
+    LayoutList,
+    MessageCircle,
 } from 'lucide-react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -163,7 +165,7 @@ export default function Navbar() {
                                 {/* Optiune Future-Proof */}
                                 <DropdownMenuItem asChild>
                                     <Link href="/my-listings" className="cursor-pointer flex items-center gap-2 py-2.5 rounded-md focus:bg-blue-50 focus:text-blue-700">
-                                        <Layout className="h-4 w-4 text-slate-500" />
+                                        <LayoutList className="h-4 w-4 text-slate-500" />
                                         <span className="font-medium" >Anunturile mele</span>
                                     </Link>
                                 </DropdownMenuItem>
@@ -171,6 +173,12 @@ export default function Navbar() {
                                     <Link href="/add" className="cursor-pointer flex items-center gap-2 py-2.5 rounded-md focus:bg-blue-50 focus:text-blue-700">
                                         <Layout className="h-4 w-4 text-slate-500" />
                                         <span className="font-medium" >Adauga anunt</span>
+                                    </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                    <Link href="/inbox" className="cursor-pointer flex items-center gap-2 py-2.5 rounded-md focus:bg-blue-50 focus:text-blue-700">
+                                        <MessageCircle className="h-4 w-4 text-slate-500" />
+                                        <span className="font-medium" >Conversatiile mele</span>
                                     </Link>
                                 </DropdownMenuItem>
                             </DropdownMenuGroup>
