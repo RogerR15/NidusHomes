@@ -183,6 +183,12 @@ export default function Navbar() {
                                         <span className="font-medium" >Anunturile mele</span>
                                     </Link>
                                 </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                    <Link href="/add" className="cursor-pointer flex items-center gap-2 py-2.5 rounded-md focus:bg-blue-50 focus:text-blue-700">
+                                        <Layout className="h-4 w-4 text-slate-500" />
+                                        <span className="font-medium" >Adauga anunt</span>
+                                    </Link>
+                                </DropdownMenuItem>
                                 
                                 <DropdownMenuItem asChild>
                                     <Link href="/inbox" className="cursor-pointer flex items-center gap-2 py-2.5 rounded-md focus:bg-blue-50 focus:text-blue-700">
@@ -228,7 +234,6 @@ export default function Navbar() {
                                     </DropdownMenuItem>
                                 </DropdownMenuGroup>
                             )}
-                            {/* ------------------------------------- */}
 
                             <DropdownMenuSeparator className="my-2 bg-gray-100" />
 
