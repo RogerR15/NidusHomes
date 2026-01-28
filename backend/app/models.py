@@ -16,7 +16,7 @@ class Listing(Base):
 
     # Date Financiare & Fizice
     price_eur = Column(Float, nullable=False)
-    sqm = Column(Float, nullable=False)
+    sqm = Column(Float, nullable=True)
     rooms = Column(Integer)
     floor = Column(Integer)
     year_built = Column(Integer, nullable=True)
@@ -51,6 +51,9 @@ class Listing(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+    agent_profile = relationship("AgentProfile", primaryjoin="foreign(Listing.owner_id) == remote(AgentProfile.id)", uselist=False, viewonly=True)
+    
+    
     # HELPERE PENTRU PYDANTIC 
     @property
     def lat(self):
@@ -116,3 +119,29 @@ class Message(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     conversation = relationship("Conversation", back_populates="messages")
+
+
+class AgentProfile(Base):
+    __tablename__ = "agent_profiles"
+    id = Column(String, primary_key=True) # UUID
+    agency_name = Column(String)
+    logo_url = Column(String)
+    bio = Column(String)
+    phone_number = Column(String)
+    license_number = Column(String)
+    is_verified = Column(Boolean, default=False)
+    rating = Column(Float, default=0.0)
+    cui = Column(String, nullable=True)
+    website = Column(String, nullable=True)
+
+class Lead(Base):
+    __tablename__ = "leads"
+    id = Column(Integer, primary_key=True, index=True)
+    agent_id = Column(String)
+    listing_id = Column(Integer)
+    client_name = Column(String)
+    client_phone = Column(String)
+    client_email = Column(String)
+    message = Column(String)
+    status = Column(String, default='NOU')
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

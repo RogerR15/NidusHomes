@@ -11,6 +11,12 @@ from sqlalchemy.orm import Session, joinedload
 from app import models, schemas
 from app.database import engine, get_db
 
+from fastapi.responses import FileResponse
+from app.utils.pdf_generator import generate_cma_report
+
+import tldextract 
+from urllib.parse import urlparse
+
 # Creare tabele
 models.Base.metadata.create_all(bind=engine)
 
@@ -81,7 +87,11 @@ def get_listing_detail(
     increment_view: bool = True,
     db: Session = Depends(get_db)
     ):
-    listing = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
+    
+    listing = db.query(models.Listing).options(
+        joinedload(models.Listing.agent_profile)
+    ).filter(models.Listing.id == listing_id).first()
+
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
     
@@ -713,6 +723,197 @@ def reply_to_conversation(
     db.refresh(new_message)
 
     return new_message
+
+
+# AGENTS
+
+# 1. GENERARE RAPORT CMA (PDF)
+@app.post("/agent/generate-cma/{listing_id}")
+def create_cma_pdf(
+    listing_id: int, 
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    # 1. Găsim casa TA
+    target = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
+    if not target: raise HTTPException(404, detail="Listing not found")
+    
+    # --- FIX: EXTRAGERE DATE SAFE (cu getattr) ---
+    t_price = getattr(target, 'price_eur', 0)
+    t_surface = getattr(target, 'sqm', 0) # Dacă nu există, pune 0
+    t_rooms = getattr(target, 'rooms', 0)
+    t_neighborhood = getattr(target, 'neighborhood', None)
+    
+    # 2. Definim marjele de comparație
+    price_min = t_price * 0.8
+    price_max = t_price * 1.2
+    
+    # Construim query-ul de bază
+    query = db.query(models.Listing).filter(
+        models.Listing.id != target.id,
+        models.Listing.price_eur >= price_min,
+        models.Listing.price_eur <= price_max
+    )
+
+    # Adăugăm filtre opționale DOAR dacă atributele există în model
+    if hasattr(models.Listing, 'rooms') and t_rooms > 0:
+        query = query.filter(models.Listing.rooms == t_rooms)
+
+    if hasattr(models.Listing, 'neighborhood') and t_neighborhood:
+        query = query.filter(models.Listing.neighborhood == t_neighborhood)
+
+    # Filtrăm după suprafață DOAR dacă există coloana 'sqm' în model și avem o valoare
+    if hasattr(models.Listing, 'sqm') and t_surface > 0:
+        surface_min = t_surface * 0.8
+        surface_max = t_surface * 1.2
+        query = query.filter(
+            models.Listing.sqm >= surface_min,
+            models.Listing.sqm <= surface_max
+        )
+
+    # Luăm maxim 5 rezultate
+    comparables = query.limit(5).all()
+    
+    print(f"📊 CMA: Am găsit {len(comparables)} proprietăți similare.")
+
+    # 3. Generăm PDF-ul
+    file_path = generate_cma_report(target, comparables)
+    
+    return FileResponse(file_path, media_type='application/pdf', filename=f"CMA_Analiza.pdf")
+
+# 2. VEZI LEAD-URILE MELE
+@app.get("/agent/leads", response_model=List[schemas.LeadOut])
+def get_my_leads(authorization: str = Header(None), db: Session = Depends(get_db)):
+    if not authorization: raise HTTPException(401)
+    token = authorization.split(" ")[1]
+    user_id = str(supabase.auth.get_user(token).user.id)
+    
+    # Returnăm lead-urile asociate acestui agent
+    return db.query(models.Lead).filter(models.Lead.agent_id == user_id).all()
+
+
+@app.put("/agent/profile", response_model=schemas.AgentProfileCreate)
+def update_my_agent_profile(
+    profile_data: schemas.AgentProfileCreate,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    if not authorization: raise HTTPException(401)
+    token = authorization.split(" ")[1]
+    user_id = str(supabase.auth.get_user(token).user.id)
+
+    # Căutăm profilul existent sau creăm unul nou
+    agent = db.query(models.AgentProfile).filter(models.AgentProfile.id == user_id).first()
+    
+    if not agent:
+        agent = models.AgentProfile(id=user_id, **profile_data.dict())
+        db.add(agent)
+    else:
+        agent.agency_name = profile_data.agency_name
+        agent.phone_number = profile_data.phone_number
+        agent.bio = profile_data.bio
+        # agent.logo_url = ... (dacă trimiți și logo)
+    
+    db.commit()
+    db.refresh(agent)
+    return agent
+
+
+@app.get("/agent/check-status")
+def check_is_agent(
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    if not authorization: return {"is_agent": False}
+    try:
+        token = authorization.split(" ")[1]
+        user_id = str(supabase.auth.get_user(token).user.id)
+        agent = db.query(models.AgentProfile).filter(models.AgentProfile.id == user_id).first()
+        return {"is_agent": agent is not None}
+    except:
+        return {"is_agent": False}
+    
+
+@app.put("/agent/profile", response_model=schemas.AgentProfileCreate)
+def update_my_agent_profile(
+    profile_data: schemas.AgentProfileCreate,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    if not authorization: raise HTTPException(401)
+    token = authorization.split(" ")[1]
+    
+    # Luăm datele userului curent
+    user_auth = supabase.auth.get_user(token)
+    user_email = user_auth.user.email
+    user_id = str(user_auth.user.id)
+
+    agent = db.query(models.AgentProfile).filter(models.AgentProfile.id == user_id).first()
+    
+    # Creăm sau Actualizăm
+    if not agent:
+        agent = models.AgentProfile(id=user_id, **profile_data.dict())
+        db.add(agent)
+    else:
+        agent.agency_name = profile_data.agency_name
+        agent.phone_number = profile_data.phone_number
+        agent.bio = profile_data.bio
+        agent.cui = profile_data.cui
+        agent.website = profile_data.website
+        
+        # --- VERIFICARE AUTOMATĂ (DOMAIN MATCH) ---
+        # Verificăm dacă domeniul emailului corespunde cu site-ul agenției
+        
+        is_verified_now = False
+        
+        if profile_data.website and user_email:
+            # 1. Extragem domeniul din site (ex: https://www.nidus.ro/contact -> nidus.ro)
+            extracted_site = tldextract.extract(profile_data.website)
+            site_domain = f"{extracted_site.domain}.{extracted_site.suffix}" # "nidus.ro"
+            
+            # 2. Extragem domeniul din email (ex: alex@nidus.ro -> nidus.ro)
+            if '@' in user_email:
+                email_domain = user_email.split('@')[1]
+                
+                # 3. Lista domeniilor publice (care NU primesc verificare automată)
+                public_domains = ['gmail.com', 'yahoo.com', 'yahoo.ro', 'outlook.com', 'icloud.com', 'hotmail.com']
+                
+                if email_domain not in public_domains:
+                    if site_domain == email_domain:
+                        is_verified_now = True
+                        print(f"✅ AUTO-VERIFICAT: {user_email} match cu {site_domain}")
+
+        # Aplicăm statusul
+        if is_verified_now:
+            agent.is_verified = True
+        else:
+            if not agent.is_verified: agent.is_verified = False 
+        
+    db.commit()
+    db.refresh(agent)
+    
+    # Returnăm obiectul și adăugăm un flag custom în răspuns dacă e verificat
+    response_object = profile_data.dict()
+    # Putem injecta is_verified în răspuns dacă modificăm schema de răspuns, 
+    # dar frontend-ul va face redirect oricum.
+    
+    return response_object
+
+# 3. Endpoint GET Profil (ca să populăm formularul când intră din nou)
+@app.get("/agent/profile")
+def get_my_agent_profile(
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    if not authorization: raise HTTPException(401)
+    token = authorization.split(" ")[1]
+    user_id = str(supabase.auth.get_user(token).user.id)
+    
+    agent = db.query(models.AgentProfile).filter(models.AgentProfile.id == user_id).first()
+    if not agent:
+        return {} # Return empty JSON
+    return agent
+
 
 
 @app.get("/")

@@ -101,7 +101,16 @@ export default function ListingPage() {
                             )}
                             <Separator className="my-8"/>
                             <div>
-                            <ContactForm listingId={listing.id} ownerId={listing.owner_id} />
+                            <ContactForm 
+                                    listingId={listing.id}
+                                    ownerId={listing.owner_id}
+                                    agentDetails={listing.agent_profile ? {
+                                        agency_name: listing.agent_profile.agency_name,
+                                        phone_number: listing.agent_profile.phone_number,
+                                        rating: listing.agent_profile.rating,
+                                        is_verified: listing.agent_profile.is_verified
+                                    } : undefined}
+                            />
                             </div>
                         </div>
                     </div>

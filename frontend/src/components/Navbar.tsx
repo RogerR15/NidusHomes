@@ -11,10 +11,12 @@ import {
     Layout,
     LayoutList,
     MessageCircle,
+    Briefcase,
+    PlusCircle // Iconiță nouă pentru "Devino Agent"
 } from 'lucide-react';
-import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-
+import axios from 'axios'; // <--- IMPORT AXIOS
 
 // SHADCN IMPORTS
 import {
@@ -36,26 +38,51 @@ export default function Navbar() {
     const supabase = createClient();
 
     const [user, setUser] = useState<any>(null);
+    const [isAgent, setIsAgent] = useState(false); // <--- STATE PENTRU STATUS AGENT
 
+    // 1. Verificăm Userul și Statusul de Agent
     useEffect(() => {
-        const getUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUser(user);
+        const initUser = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            setUser(session?.user ?? null);
+
+            if (session?.user) {
+                checkAgentStatus(session.access_token);
+            }
         };
-        getUser();
+        initUser();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setUser(session?.user ?? null);
+            if (session?.user) {
+                checkAgentStatus(session.access_token);
+            } else {
+                setIsAgent(false);
+            }
         });
 
         return () => subscription.unsubscribe();
     }, []);
+
+    // Funcție care întreabă backend-ul dacă suntem agent
+    const checkAgentStatus = async (token: string) => {
+        try {
+            const res = await axios.get('http://127.0.0.1:8000/agent/check-status', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setIsAgent(res.data.is_agent);
+        } catch (err) {
+            console.error("Eroare verificare agent", err);
+            setIsAgent(false);
+        }
+    };
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
         router.push('/login');
         router.refresh();
         setUser(null);
+        setIsAgent(false);
     };
 
     const isActive = (type: string) => {
@@ -64,7 +91,6 @@ export default function Navbar() {
             : "text-slate-600 font-medium hover:text-blue-600 transition-colors";
     };
 
-    // Helper pentru initiale (cu gradient background)
     const getInitials = () => {
         const name = user?.user_metadata?.full_name || user?.email || 'U';
         return name.slice(0, 1).toUpperCase();
@@ -73,46 +99,35 @@ export default function Navbar() {
     return (
         <header className="sticky top-0 w-full bg-white/80 backdrop-blur-md border-b border-gray-100 py-3 px-4 md:px-8 flex items-center justify-between z-50 transition-all">
 
-            {/* STANGA: Navigatie Principala */}
+            {/* STANGA */}
             <nav className="hidden md:flex items-center gap-8">
                 <Link href="/?type=SALE" className={`py-2 text-sm ${isActive('SALE')}`}>Cumpara</Link>
                 <Link href="/?type=RENT" className={`py-2 text-sm ${isActive('RENT')}`}>Închiriaza</Link>
                 <Link href="#" className="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors">Vinde</Link>
             </nav>
 
-            {/* MOBIL: Meniu Hamburger */}
+            {/* MOBIL */}
             <div className="md:hidden">
                 <Button variant="ghost" size="icon" className="text-slate-700">
                     <Menu size={24} />
                 </Button>
             </div>
 
-            {/* CENTRU: Logo */}
+            {/* CENTRU */}
             <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
                 <Link href="/" className="flex items-center gap-2 group">
-                    {/* <div className="relative w-10 h-10 transform transition-transform duration-300">
-                        <Image
-                            src="/logo.png"       
-                            alt="NidusHomes Logo"
-                            fill
-                            sizes="40px"         
-                            className="object-contain" 
-                            priority              
-                        />
-                    </div> */}
                     <span className="text-3xl font-black text-slate-900 tracking-tighter hidden sm:block">
                         Nidus<span className="text-blue-700">Homes</span>
                     </span>
                 </Link>
             </div>
 
-            {/* DREAPTA: Profil & Dropdown */}
+            {/* DREAPTA */}
             <div className="flex items-center gap-4">
 
                 {user ? (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            {/* Butonul "Pastila" */}
                             <Button
                                 variant="secondary"
                                 className="relative bg-neutral-50 h-12 rounded-3xl pl-1 pr-4 gap-2 hover:bg-gray-100 hover:border-gray-300 transition-all group"
@@ -162,19 +177,13 @@ export default function Navbar() {
                                     </Link>
                                 </DropdownMenuItem>
 
-                                {/* Optiune Future-Proof */}
                                 <DropdownMenuItem asChild>
                                     <Link href="/my-listings" className="cursor-pointer flex items-center gap-2 py-2.5 rounded-md focus:bg-blue-50 focus:text-blue-700">
                                         <LayoutList className="h-4 w-4 text-slate-500" />
                                         <span className="font-medium" >Anunturile mele</span>
                                     </Link>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem asChild>
-                                    <Link href="/add" className="cursor-pointer flex items-center gap-2 py-2.5 rounded-md focus:bg-blue-50 focus:text-blue-700">
-                                        <Layout className="h-4 w-4 text-slate-500" />
-                                        <span className="font-medium" >Adauga anunt</span>
-                                    </Link>
-                                </DropdownMenuItem>
+                                
                                 <DropdownMenuItem asChild>
                                     <Link href="/inbox" className="cursor-pointer flex items-center gap-2 py-2.5 rounded-md focus:bg-blue-50 focus:text-blue-700">
                                         <MessageCircle className="h-4 w-4 text-slate-500" />
@@ -183,7 +192,45 @@ export default function Navbar() {
                                 </DropdownMenuItem>
                             </DropdownMenuGroup>
 
-                            <DropdownMenuSeparator className="my-2" />
+                            <DropdownMenuSeparator className="my-2 bg-gray-100" />
+                            
+                            {/* --- LOGICA CONDITIONALĂ PENTRU AGENT --- */}
+                            
+                            {isAgent ? (
+                                <>
+                                    <div className="px-2 py-1.5 text-[10px] font-bold text-blue-600 uppercase tracking-wider bg-blue-50 rounded mb-1 mx-1">
+                                        Cont Agent
+                                    </div>
+                                    <DropdownMenuGroup>
+                                        <DropdownMenuItem asChild>
+                                            <Link href="/agent/dashboard" className="cursor-pointer flex items-center gap-2 py-2.5 rounded-md focus:bg-blue-50 focus:text-blue-700">
+                                                <LayoutDashboard className="h-4 w-4 text-slate-500" />
+                                                <span className="font-medium">Dashboard</span>
+                                            </Link>
+                                        </DropdownMenuItem>
+
+                                        <DropdownMenuItem asChild>
+                                            <Link href="/agent/settings" className="cursor-pointer flex items-center gap-2 py-2.5 rounded-md focus:bg-blue-50 focus:text-blue-700">
+                                                <Briefcase className="h-4 w-4 text-slate-500" />
+                                                <span className="font-medium">Profil Agent</span>
+                                            </Link>
+                                        </DropdownMenuItem>
+                                    </DropdownMenuGroup>
+                                </>
+                            ) : (
+                                /* DACA NU ESTE AGENT - Arătăm opțiunea să devină */
+                                <DropdownMenuGroup>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/agent/settings" className="cursor-pointer flex items-center gap-2 py-2.5 rounded-md hover:bg-slate-900 hover:text-white transition-colors group">
+                                            <PlusCircle className="h-4 w-4 text-slate-500 group-hover:text-white" />
+                                            <span className="font-medium">Devino Agent / Firmă</span>
+                                        </Link>
+                                    </DropdownMenuItem>
+                                </DropdownMenuGroup>
+                            )}
+                            {/* ------------------------------------- */}
+
+                            <DropdownMenuSeparator className="my-2 bg-gray-100" />
 
                             <DropdownMenuItem
                                 onClick={handleLogout}

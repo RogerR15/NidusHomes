@@ -113,3 +113,50 @@ class ConversationOut(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+# Scheme pentru Agent/Leads
+class AgentProfileCreate(BaseModel):
+    agency_name: str
+    phone_number: str
+    bio: Optional[str] = None
+    cui: Optional[str] = None
+    website: Optional[str] = None
+    cui: Optional[str] = None    
+    website: Optional[str] = None
+
+class LeadOut(BaseModel):
+    id: int
+    client_name: str
+    client_phone: str
+    message: Optional[str]
+    status: str
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+class AgentProfilePublic(BaseModel):
+    agency_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    logo_url: Optional[str] = None
+    is_verified: bool = False
+    rating: float = 0.0
+    
+    class Config:
+        from_attributes = True
+
+# 2. Actualizăm ListingOut să includă "agent_profile"
+class ListingOut(BaseModel):
+    id: int
+    owner_id: Optional[Union[str, UUID]] = None
+    title: str
+    description: Optional[str] = None
+    price_eur: int
+    address: Optional[str] = None
+    # ... (alte câmpuri existente: image_url, rooms, surface, etc.) ...
+    
+    # AICI E CHEIA:
+    agent_profile: Optional[AgentProfilePublic] = None 
+
+    class Config:
+        from_attributes = True

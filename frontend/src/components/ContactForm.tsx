@@ -9,9 +9,15 @@ import ClaimModal from './ClaimModal';
 interface ContactFormProps {
     listingId: number;
     ownerId: string | null;
+    agentDetails?: {  
+        agency_name: string;
+        phone_number: string;
+        rating: number;
+        is_verified: boolean;
+    }
 }
 
-export default function ContactForm({ listingId, ownerId }: ContactFormProps) {
+export default function ContactForm({ listingId, ownerId, agentDetails }: ContactFormProps) {
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
     const [sent, setSent] = useState(false);
@@ -125,6 +131,30 @@ export default function ContactForm({ listingId, ownerId }: ContactFormProps) {
 
     return (
         <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm sticky top-24">
+            {agentDetails && (
+                <div className="mb-6 border-b pb-4">
+                    <div className="flex items-center gap-3 mb-2">
+                        {/* Avatar Agent (Placeholder sau real) */}
+                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-lg">
+                            {agentDetails.agency_name ? agentDetails.agency_name[0] : 'A'}
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-gray-900">
+                                {agentDetails.agency_name || "Agent Independent"}
+                                {agentDetails.is_verified && <span className="ml-1 text-blue-500" title="Verificat">✓</span>}
+                            </h3>
+                            <div className="flex items-center text-yellow-500 text-sm">
+                                ★ {agentDetails.rating || "5.0"} <span className="text-gray-400 ml-1">(24 reviews)</span>
+                            </div>
+                        </div>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                        Listing Agent
+                    </p>
+                </div>
+            )}
+
+            
             <h3 className="font-bold text-lg text-gray-900 mb-4 flex items-center gap-2">
                 <MessageSquare className="text-blue-600" size={20}/> 
                 Contacteaza Proprietarul
