@@ -33,7 +33,10 @@ export default function ListingCard({ listing }: { listing: Listing }) {
 
     const getImageUrl = (listing: any) => {
         if (!listing.image_url) return null;
-        if (listing.source_platform === 'OLX') {
+
+        const isOlxImage = listing.image_url.includes('olx') || listing.source_platform === 'OLX';
+
+        if (isOlxImage) {
             return `/api/image-proxy?url=${encodeURIComponent(listing.image_url)}`;
         }
         return listing.image_url;

@@ -30,6 +30,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '@/context/AuthContext';
 
 export default function Navbar() {
     const searchParams = useSearchParams();
@@ -37,52 +38,11 @@ export default function Navbar() {
     const currentType = searchParams.get('type') || 'SALE';
     const supabase = createClient();
 
-    const [user, setUser] = useState<any>(null);
-    const [isAgent, setIsAgent] = useState(false); // <--- STATE PENTRU STATUS AGENT
-
-    // 1. Verificăm Userul și Statusul de Agent
-    useEffect(() => {
-        const initUser = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            setUser(session?.user ?? null);
-
-            if (session?.user) {
-                checkAgentStatus(session.access_token);
-            }
-        };
-        initUser();
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                checkAgentStatus(session.access_token);
-            } else {
-                setIsAgent(false);
-            }
-        });
-
-        return () => subscription.unsubscribe();
-    }, []);
-
-    // Funcție care întreabă backend-ul dacă suntem agent
-    const checkAgentStatus = async (token: string) => {
-        try {
-            const res = await axios.get('http://127.0.0.1:8000/agent/check-status', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setIsAgent(res.data.is_agent);
-        } catch (err) {
-            console.error("Eroare verificare agent", err);
-            setIsAgent(false);
-        }
-    };
+    const { user, isAgent, loading } = useAuth();
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
-        router.push('/login');
-        router.refresh();
-        setUser(null);
-        setIsAgent(false);
+        window.location.href = '/login'; 
     };
 
     const isActive = (type: string) => {
@@ -125,7 +85,9 @@ export default function Navbar() {
             {/* DREAPTA */}
             <div className="flex items-center gap-4">
 
-                {user ? (
+                {loading ? (
+                    <span>Se încarcă...</span> 
+                ) :user ? (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button

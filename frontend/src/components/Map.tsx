@@ -155,35 +155,62 @@ export default function MapView({ listings, activeId, setActiveId }: any) {
                                 }}
                                 {...({ listingId: l.id } as any)}
                             >
-                                <Popup>
-                                    <div className="w-48 overflow-hidden rounded-lg">
-                                        {/* Partea de Imagine (deja existenta) */}
-                                        {popupImageUrl && (
-                                            <Link href={`/listing/${l.id}`}>
+                                <Popup className="custom-popup" closeButton={false}>
+                                    <div className="w-64 bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 font-sans group">
+
+                                        {/* ZONA IMAGINE */}
+                                        <Link href={`/listing/${l.id}`} className="block relative overflow-hidden h-36">
+                                            {popupImageUrl ? (
                                                 <img
                                                     src={popupImageUrl}
-                                                    className="w-full h-24 object-cover hover:opacity-90 transition-opacity cursor-pointer"
+                                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                                     alt={l.title}
                                                     onError={(e) => {
-                                                        e.currentTarget.src = "https://placehold.co/600x400/e2e8f0/1e293b?text=Fara+Imagine";
+                                                        e.currentTarget.src = "https://placehold.co/600x400/e2e8f0/1e293b.png?text=Fara+Imagine";
                                                     }}
                                                 />
+                                            ) : (
+                                                <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-400">
+                                                    <span className="text-xs">Fără imagine</span>
+                                                </div>
+                                            )}
+
+                                            {/* Badge Preț peste imagine (Opțional, arată modern) */}
+                                            <div className="absolute bottom-2 left-2 bg-white/95 backdrop-blur-sm px-2.5 py-1 h-6 rounded shadow-sm flex items-center justify-center">
+                                                <p className="text-blue-600 font-extrabold text-xs tracking-tight">
+                                                    {(l.price_eur || 0).toLocaleString()} €
+                                                </p>
+                                            </div>
+                                        </Link>
+
+                                        {/* ZONA CONTINUT */}
+                                        <div className="p-3">
+                                            {/* Titlu */}
+                                            <Link href={`/listing/${l.id}`} className="block mb-1">
+                                                <h3 className="font-bold text-gray-800 text-sm leading-snug truncate group-hover:text-blue-600 transition-colors">
+                                                    {l.title}
+                                                </h3>
                                             </Link>
-                                        )}
 
-                                        <div className="p-2">
-                                            <p className="font-bold text-sm leading-tight truncate">{l.title}</p>
-                                            <p className="text-blue-600 font-bold">{(l.price_eur || 0).toLocaleString()} €</p>
-                                            <p className="text-xs text-gray-500 mb-2">{l.neighborhood || 'Iasi'}</p>
+                                            {/* Locație cu Icon */}
+                                            <div className="flex items-center gap-1 text-gray-500 mb-3">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                                                    <circle cx="12" cy="10" r="3" />
+                                                </svg>
+                                                <p className="text-xs truncate">{l.neighborhood || 'Iași'}</p>
+                                            </div>
 
-                                            {/* 2. BUTONUL DE VEZI DETALII */}
+                                            {/* Buton Detalii */}
                                             <Link
                                                 href={`/listing/${l.id}`}
-                                                className="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 rounded transition-colors"
+                                                className="flex items-center justify-center gap-2 w-full bg-slate-50 hover:bg-blue-600  border border-slate-200 hover:border-blue-600 text-slate-700 hover:text-white text-xs font-bold py-2 rounded-lg transition-all duration-200"
                                             >
                                                 Vezi Detalii
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+                                                </svg>
                                             </Link>
-
                                         </div>
                                     </div>
                                 </Popup>

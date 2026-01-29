@@ -12,6 +12,7 @@ from shapely.geometry import Point
 import re
 from curl_cffi import requests as crequests
 from playwright.sync_api import sync_playwright
+from datetime import datetime
 
 # 1. Configurare Geocoder
 # User-agent unic pentru a evita blocarea
@@ -81,6 +82,31 @@ IASI_ZONES = {
     "tomesti": "Tomesti, Iasi",
     "breazu": "Breazu, Iasi",
 }
+
+# GENERATOR AMPRENTA TEXT (Fingerprint)
+def generate_fingerprint(details):
+    """
+    Creează un ID unic bazat pe caracteristicile fizice.
+    Format: zona_camere_etaj_mp(rotunjit)
+    Ex: pacurari_2cam_etaj3_54mp
+    """
+    # 1. Zona (normalizată: litere mici, fără spații inutile)
+    zone = (details.get('neighborhood') or 'iasi').lower().replace("iasi", "").replace(",", "").strip().split(' ')[0]
+    
+    # 2. Camere
+    rooms = details.get('rooms') or 0
+    
+    # 3. Etaj (normalizat: parter=0)
+    floor = details.get('floor')
+    floor_str = str(floor) if floor is not None else "x"
+    
+    # 4. Suprafață (Rotunjită la multiplu de 2 pentru a prinde variațiile mici: 55mp ~= 54mp)
+    sqm = details.get('sqm') or 0
+    # Dacă e 55 -> devine 54. Dacă e 56 -> rămâne 56. Marja de eroare +/- 1mp.
+    sqm_bucket = int(round(sqm / 2.0) * 2) 
+    
+    return f"{zone}_{rooms}cam_et{floor_str}_{sqm_bucket}mp"
+
 
 def extract_zone_from_text(text):
     """Cauta un cartier in text (titlu) si returneaza query-ul pentru harta."""
@@ -321,6 +347,38 @@ def scrape_storia(target):
             for img in images:
                 u = img.get('large') or img.get('medium') or img.get('url')
                 if u: images_list.append(u)
+
+
+            # Fingerprint Text
+            fp_data = {
+                'neighborhood': district,
+                'rooms': rooms,
+                'floor': floor,
+                'sqm': area
+            }
+            text_fingerprint = generate_fingerprint(fp_data)
+
+
+            existing_match = db.query(models.Listing).filter(
+                models.Listing.fingerprint == text_fingerprint,
+                models.Listing.status == 'ACTIVE',
+                models.Listing.transaction_type == trans_type
+            ).first()
+
+            if existing_match:
+                # SCENARIU: Am găsit același apartament listat deja
+                # Dacă noul preț e mai bun, actualizăm anunțul vechi
+                if price > 0 and price < existing_match.price_eur:
+                    print(f"Match gasit (ID {existing_match.id}). Actualizez pret: {existing_match.price_eur} -> {price}")
+                    existing_match.price_eur = price
+                    existing_match.listing_url = listing_url # Actualizăm linkul
+                    existing_match.updated_at = datetime.now()
+                    db.commit()
+                else:
+                    # print(f"Match găsit (ID {existing_match.id}). Skip.")
+                    pass
+                continue # NU creăm anunț nou
+
             
             # SALVARE INDIVIDUALA (COMMIT PER ITEM) 
             try:
@@ -340,7 +398,8 @@ def scrape_storia(target):
                     year_built=year_built,
                     compartmentation=compartmentation,
                     listing_url=listing_url,
-                    status="ACTIVE"
+                    status="ACTIVE",
+                    fingerprint=text_fingerprint,
                 )
                 db.add(new_ad)
                 db.commit() # SALVAM IMEDIAT
@@ -555,6 +614,32 @@ def scrape_olx(target):
                         lat += (random.random() - 0.5) * 0.002
                         lng += (random.random() - 0.5) * 0.002
 
+                    
+                    # 1. Fingerprint Text
+                    fp_data = {
+                        'neighborhood': neighborhood,
+                        'rooms': details.get('rooms'),
+                        'floor': details.get('floor'),
+                        'sqm': sqm
+                    }
+                    text_fingerprint = generate_fingerprint(fp_data)
+
+                    existing_match = db.query(models.Listing).filter(
+                        models.Listing.fingerprint == text_fingerprint,
+                        models.Listing.status == 'ACTIVE',
+                        models.Listing.transaction_type == trans_type
+                    ).first()
+
+                    if existing_match:
+                        if price > 0 and price < existing_match.price_eur:
+                            print(f"   ⚠️ Match găsit (ID {existing_match.id}). Update: {existing_match.price_eur} -> {price}")
+                            existing_match.price_eur = price
+                            existing_match.listing_url = listing_url
+                            existing_match.updated_at = datetime.now()
+                            db.commit()
+                        continue
+
+
                     new_ad = models.Listing(
                         title=title,
                         price_eur=price,
@@ -571,6 +656,7 @@ def scrape_olx(target):
                         images=images_list,
                         listing_url=listing_url,
                         status="ACTIVE",
+                        fingerprint=text_fingerprint,
                     )
                     db.add(new_ad)
                     count += 1

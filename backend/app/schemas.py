@@ -28,6 +28,18 @@ class ListingCreate(ListingBase):
     price: float = Field(..., alias="price_eur")
     address: Optional[str] = None
 
+
+class AgentProfilePublic(BaseModel):
+    agency_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    logo_url: Optional[str] = None
+    is_verified: bool = False
+    rating: float = 0.0
+    
+    class Config:
+        from_attributes = True
+
+
 # FRONTEND OUTPUT 
 class ListingOut(ListingBase):
     id: int
@@ -48,6 +60,8 @@ class ListingOut(ListingBase):
     views: int = 0
     favorites_count: int = 0
     is_claimed: bool = False
+
+    agent_profile: Optional[AgentProfilePublic] = None
 
     class Config:
         from_attributes = True # Permite conversia automata din SQLAlchemy
@@ -135,32 +149,6 @@ class LeadOut(BaseModel):
     message: Optional[str] = None
     status: str
     created_at: datetime
-    class Config:
-        from_attributes = True
-
-class AgentProfilePublic(BaseModel):
-    agency_name: Optional[str] = None
-    phone_number: Optional[str] = None
-    logo_url: Optional[str] = None
-    is_verified: bool = False
-    rating: float = 0.0
-    
-    class Config:
-        from_attributes = True
-
-# 2. Actualizăm ListingOut să includă "agent_profile"
-class ListingOut(BaseModel):
-    id: int
-    owner_id: Optional[Union[str, UUID]] = None
-    title: str
-    description: Optional[str] = None
-    price_eur: int
-    address: Optional[str] = None
-    # ... (alte câmpuri existente: image_url, rooms, surface, etc.) ...
-    
-    # AICI E CHEIA:
-    agent_profile: Optional[AgentProfilePublic] = None 
-
     class Config:
         from_attributes = True
 
