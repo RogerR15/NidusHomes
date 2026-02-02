@@ -204,10 +204,21 @@ export default function MapView({ listings, activeId, setActiveId }: any) {
                                             {/* Buton Detalii */}
                                             <Link
                                                 href={`/listing/${l.id}`}
-                                                className="flex items-center justify-center gap-2 w-full bg-slate-50 hover:bg-blue-600  border border-slate-200 hover:border-blue-600 text-slate-700 hover:text-white text-xs font-bold py-2 rounded-lg transition-all duration-200"
+                                                className="group relative overflow-hidden flex items-center justify-center gap-2 w-full bg-slate-50/80 backdrop-blur-sm hover:bg-blue-50 text-blue-600 border border-blue-200 hover:border-blue-400 text-xs font-bold py-2 rounded-lg transition-all duration-300"
                                             >
-                                                Vezi Detalii
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <span className="relative z-10">Vezi Detalii</span>
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="14"
+                                                    height="14"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="2"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    className="relative z-10 transition-transform group-hover:translate-x-1"
+                                                >
                                                     <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
                                                 </svg>
                                             </Link>

@@ -48,7 +48,7 @@ app.add_middleware(
 @app.get("/listings", response_model=List[schemas.ListingOut])
 def get_listings(
     db: Session = Depends(get_db),
-    limit: int = 100,
+    limit: int = 24,
     offset: int = 0,
     transaction_type: str = Query("SALE", description="SALE sau RENT"),
     min_price: Optional[float] = None,

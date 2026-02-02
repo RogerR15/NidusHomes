@@ -133,6 +133,7 @@ export default function ListingCard({ listing }: { listing: Listing }) {
                         <img
                             src={displayImageUrl}
                             alt={listing.title}
+                            loading="lazy"
                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                             onError={(e) => {
                                 e.currentTarget.src = "https://placehold.co/600x400/e2e8f0/1e293b?text=Fara+Imagine";

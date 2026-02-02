@@ -25,7 +25,7 @@ def compute_phash(image_url):
             # pHash este rezistent la redimensionări mici sau watermark-uri discrete
             return str(imagehash.phash(img))
     except Exception as e:
-        print(f"   [Eroare Download]: {e}")
+        print(f"[Eroare Download]: {e}")
     return None
 
 def run_image_processor():
@@ -42,14 +42,14 @@ def run_image_processor():
         ).limit(BATCH_SIZE).all()
 
         if not candidates:
-            print("💤 Niciun anunț nou de procesat. Dorm 60 secunde...")
+            print("Niciun anunț nou de procesat. Dorm 60 secunde...")
             time.sleep(60) # Așteptăm să mai aducă scraperul date
             continue # Reîncepem bucla
 
         print(f"⚡ Procesez lot de {len(candidates)} imagini...")
 
         for ad in candidates:
-            print(f" -> Procesez ID {ad.id}: {ad.title[:30]}...")
+            print(f"Procesez ID {ad.id}: {ad.title[:30]}...")
             
             # A. Calculăm Hash-ul
             im_hash = compute_phash(ad.image_url)
@@ -82,7 +82,7 @@ def run_image_processor():
                 
                 # Varianta 2 (Opțional): Dacă noul preț e mai bun, actualizăm prețul la cel vechi
                 if ad.price_eur > 0 and ad.price_eur < duplicate.price_eur:
-                    print(f"      💰 Preț mai bun găsit! Actualizez originalul: {duplicate.price_eur} -> {ad.price_eur}")
+                    print(f"Preț mai bun găsit! Actualizez originalul: {duplicate.price_eur} -> {ad.price_eur}")
                     duplicate.price_eur = ad.price_eur
                     duplicate.updated_at = ad.created_at # Îl aducem în față
 
