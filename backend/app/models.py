@@ -3,14 +3,14 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from geoalchemy2 import Geometry
 from geoalchemy2.shape import to_shape 
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from .database import Base
 
 class Listing(Base):
     __tablename__ = "listings"
 
     id = Column(Integer, primary_key=True, index=True)
-    owner_id = Column(String, nullable=True)
+    owner_id = Column(UUID(as_uuid=False), nullable=True)
     title = Column(String, nullable=False)
     description = Column(Text)
 
@@ -80,8 +80,8 @@ class Listing(Base):
 class Favorite(Base):
     __tablename__ = "favorites"  
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(String, nullable=False)
-    listing_id = Column(Integer, ForeignKey("listings.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=False), nullable=False)
+    listing_id = Column(Integer, ForeignKey("listings.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -89,8 +89,8 @@ class ClaimRequest(Base):
     __tablename__ = "claim_requests"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(String, nullable=False)
-    listing_id = Column(Integer, ForeignKey("listings.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=False), nullable=False)
+    listing_id = Column(Integer, ForeignKey("listings.id", ondelete="CASCADE"), nullable=False)
     status = Column(String, default="PENDING")
     proof_document_url = Column(String, nullable=True)
     contact_info = Column(String, nullable=True)
@@ -101,9 +101,9 @@ class Conversation(Base):
     __tablename__ = "conversations"
 
     id = Column(Integer, primary_key=True, index=True)
-    listing_id = Column(Integer, ForeignKey("listings.id"), nullable=False)
-    buyer_id = Column(String, nullable=False)
-    seller_id = Column(String, nullable=False)
+    listing_id = Column(Integer, ForeignKey("listings.id", ondelete="CASCADE"), nullable=False)
+    buyer_id = Column(UUID(as_uuid=False), nullable=False)
+    seller_id = Column(UUID(as_uuid=False), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -115,8 +115,8 @@ class Message(Base):
     __tablename__ = "messages"
 
     id = Column(Integer, primary_key=True, index=True)
-    conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=False)
-    sender_id = Column(String, nullable=False)
+    conversation_id = Column(Integer, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
+    sender_id = Column(UUID(as_uuid=False), nullable=False)
     content = Column(Text, nullable=False)
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -126,7 +126,7 @@ class Message(Base):
 
 class AgentProfile(Base):
     __tablename__ = "agent_profiles"
-    id = Column(String, primary_key=True) # UUID
+    id = Column(UUID(as_uuid=False), primary_key=True) # UUID
     agency_name = Column(String)
     logo_url = Column(String)
     bio = Column(String)
@@ -140,7 +140,7 @@ class AgentProfile(Base):
 class Lead(Base):
     __tablename__ = "leads"
     id = Column(Integer, primary_key=True, index=True)
-    agent_id = Column(String)
+    agent_id = Column(UUID(as_uuid=False))
     listing_id = Column(Integer)
     client_name = Column(String)
     client_phone = Column(String)
@@ -154,8 +154,8 @@ class AgentReview(Base):
     __tablename__ = "agent_reviews"
 
     id = Column(Integer, primary_key=True, index=True)
-    agent_id = Column(String, index=True)  # UUID-ul agentului
-    client_id = Column(String)             # UUID-ul clientului care lasă recenzia
+    agent_id = Column(UUID(as_uuid=False), index=True)  # UUID-ul agentului
+    client_id = Column(UUID(as_uuid=False))             # UUID-ul clientului care lasă recenzia
     rating = Column(Integer)               # 1-5
     comment = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

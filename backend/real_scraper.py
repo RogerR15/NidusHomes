@@ -163,41 +163,31 @@ def extract_details_from_text(text):
     return details
 
 def extract_surface(soup, description_text):
-    """
-    Încearcă să găsească suprafața în HTML sau în descriere folosind Regex.
-    Caută formate gen: "50 mp", "50mp", "50 m2", "50.5 mp"
-    """
+    """Corectat pentru a evita eroarea 'NoneType object has no attribute find_all'"""
     surface = 0
 
-    # METODA 1: Căutare în lista de specificații (unde scrie "Suprafata utila: 50 mp")
-    # OLX și Storia pun asta de obicei în tag-uri <li> sau <p>
-    try:
-        keywords = ['suprafata', 'suprafață', 'utila', 'utilă']
-        # Căutăm în orice tag care conține textul "suprafata"
-        tags = soup.find_all(lambda tag: tag.name in ['li', 'p', 'div', 'span'] and any(k in tag.get_text().lower() for k in keywords))
-        
-        for tag in tags:
-            text = tag.get_text().lower()
-            # Regex: Caută un număr urmat de mp/m2
-            match = re.search(r'(\d+(?:[.,]\d+)?)\s*(?:mp|m²|m2)', text)
-            if match:
-                num_str = match.group(1).replace(',', '.')
-                surface = float(num_str)
-                if 10 < surface < 1000: # Filtru de siguranță (să nu luăm ani sau numere de telefon)
-                    return int(surface)
-    except Exception as e:
-        print(f"Eroare la parsare HTML suprafata: {e}")
+    # METODA 1: HTML (Doar dacă soup există)
+    if soup:
+        try:
+            keywords = ['suprafata', 'suprafață', 'utila', 'utilă']
+            tags = soup.find_all(lambda tag: tag.name in ['li', 'p', 'div', 'span'] and any(k in tag.get_text().lower() for k in keywords))
+            for tag in tags:
+                text = tag.get_text().lower()
+                match = re.search(r'(\d+(?:[.,]\d+)?)\s*(?:mp|m²|m2)', text)
+                if match:
+                    num_str = match.group(1).replace(',', '.')
+                    val = float(num_str)
+                    if 10 < val < 1000: return int(val)
+        except Exception:
+            pass
 
-    # METODA 2: Regex Brut în Descriere (Fallback)
-    # Dacă nu am găsit în tabel, căutăm în textul anunțului "55 mp"
+    # METODA 2: Regex Brut în text
     try:
-        # Căutăm tipare de genul:  spatiu spatiu 55 mp
         match = re.search(r'(\d+(?:[.,]\d+)?)\s*(?:mp|m²|m2)', description_text, re.IGNORECASE)
         if match:
             num_str = match.group(1).replace(',', '.')
             val = float(num_str)
-            if 10 < val < 500: # Validare (să fie realist pentru un apartament)
-                return int(val)
+            if 10 < val < 500: return int(val)
     except:
         pass
 
@@ -632,7 +622,7 @@ def scrape_olx(target):
 
                     if existing_match:
                         if price > 0 and price < existing_match.price_eur:
-                            print(f"   ⚠️ Match găsit (ID {existing_match.id}). Update: {existing_match.price_eur} -> {price}")
+                            print(f"Match găsit (ID {existing_match.id}). Update: {existing_match.price_eur} -> {price}")
                             existing_match.price_eur = price
                             existing_match.listing_url = listing_url
                             existing_match.updated_at = datetime.now()
