@@ -8,6 +8,7 @@ import Navbar from '@/components/Navbar';
 import { Listing } from '@/types';
 import { useSearchParams } from 'next/navigation';
 import { useInView } from 'react-intersection-observer';
+import { ListIcon, MapIcon } from 'lucide-react';
 
 const MapView = dynamic(() => import('@/components/Map'), {
   ssr: false,
@@ -31,6 +32,8 @@ function HomeContent() {
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
   const LIMIT = 12;
+
+  const [showMapMobile, setShowMapMobile] = useState(false);
 
   const searchParams = useSearchParams();
   const { ref, inView } = useInView({ threshold: 0, rootMargin: '100px' });
@@ -132,10 +135,15 @@ function HomeContent() {
       <div className="flex-none z-50"><Navbar /></div>
       <div className="flex-none z-40 shadow-sm bg-white relative"><FilterBar /></div>
 
-      <main className="flex-1 flex flex-col md:flex-row relative overflow-hidden">
+      <main className="flex-1 flex  md:flex-row relative overflow-hidden">
         
         {/* ZONA A: LISTA */}
-        <div className="order-2 md:order-1 w-full md:w-112.5 lg:w-125 h-1/2 md:h-full overflow-y-auto custom-scrollbar border-t md:border-t-0 md:border-r border-gray-200 bg-white shadow-md z-20">
+        <div className={`
+            w-full md:w-112.5 lg:w-125 
+            h-full overflow-y-auto custom-scrollbar 
+            border-r border-gray-200 bg-white shadow-md z-20
+            ${showMapMobile ? 'hidden' : 'block'} md:block
+        `}>
           <div className="p-4 border-b bg-gray-50 flex justify-between items-center sticky top-0 z-10">
             <div>
               <h2 className="font-bold text-lg text-gray-800">Rezultate</h2>
@@ -182,7 +190,10 @@ function HomeContent() {
         </div>
 
         {/* ZONA B: HARTA */}
-        <div className="order-1 md:order-2 w-full md:flex-1 h-1/2 md:h-full relative z-10">
+        <div className={`
+            w-full md:flex-1 h-full relative z-10
+            ${!showMapMobile ? 'hidden' : 'block'} md:block
+        `}>
           
           <MapView listings={mapListings} activeId={activeId} setActiveId={setActiveId} />
           
@@ -192,6 +203,23 @@ function HomeContent() {
               <span className="text-sm font-bold text-blue-600">Se actualizeaza...</span>
             </div>
           )}
+        </div>
+
+        <div className="md:hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
+            <button
+                onClick={() => setShowMapMobile(!showMapMobile)}
+                className="flex items-center gap-2 bg-gray-900 text-white px-6 py-3.5 rounded-full shadow-2xl font-semibold hover:bg-black transition-transform active:scale-95"
+            >
+                {showMapMobile ? (
+                    <>
+                        <ListIcon size={18} /> Vezi Lista
+                    </>
+                ) : (
+                    <>
+                        <MapIcon size={18} /> Vezi Harta
+                    </>
+                )}
+            </button>
         </div>
 
       </main>

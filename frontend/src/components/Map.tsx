@@ -6,6 +6,21 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import Link from 'next/link';
 
+function MapResizer({ trigger }: { trigger: boolean }) {
+    const map = useMap();
+
+    useEffect(() => {
+        // Asteptam 300ms sa se termine animatia/randarea CSS
+        const timer = setTimeout(() => {
+            map.invalidateSize(); 
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [trigger, map]);
+
+    return null;
+}
+
+
 function MapController({ activeListing, clusterGroupRef }: { activeListing: any, clusterGroupRef: any }) {
     const map = useMap();
 
@@ -58,7 +73,7 @@ function MapController({ activeListing, clusterGroupRef }: { activeListing: any,
     return null;
 }
 
-export default function MapView({ listings, activeId, setActiveId }: any) {
+export default function MapView({ listings, activeId, setActiveId, forceRefresh = false }: any) {
     const clusterGroupRef = useRef<any>(null);
     const activeListing = listings.find((l: any) => l.id === activeId);
 
@@ -90,6 +105,8 @@ export default function MapView({ listings, activeId, setActiveId }: any) {
                     attribution='&copy; CARTO'
                     url='https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png'
                 />
+
+                <MapResizer trigger={forceRefresh} />
 
                 <MapController activeListing={activeListing} clusterGroupRef={clusterGroupRef} />
 
