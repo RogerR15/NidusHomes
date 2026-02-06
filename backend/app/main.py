@@ -118,9 +118,11 @@ def create_listing(
     
     try:
         token = authorization.split(" ")[1]
-        user = supabase.auth.get_user(token)
+        auth_response = supabase.auth.get_user(token)
+        current_user = auth_response.user
         # FIX: Convertim ID-ul in string simplu
-        user_id = str(user.user.id) 
+        user_id = str(current_user.id)
+        user_phone = current_user.user_metadata.get('phone', None)
     except Exception as e:
         print(f"Auth Error: {e}")
         raise HTTPException(status_code=401, detail="Invalid Token")
@@ -151,17 +153,14 @@ def create_listing(
         
         source_platform="NidusHomes",
         is_claimed=True,
-        status="ACTIVE"
+        status="ACTIVE",
+        contact_phone=user_phone
     )
 
     
     db.add(new_listing)
     db.commit()
     db.refresh(new_listing)
-
-    fav_count = 0
-    listing_data = schemas.ListingOut.model_validate(listing)
-    listing_data.favorites_count = fav_count
 
     return new_listing
 

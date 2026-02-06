@@ -135,7 +135,7 @@ function HomeContent() {
       <main className="flex-1 flex flex-col md:flex-row relative overflow-hidden">
         
         {/* ZONA A: LISTA */}
-        <div className="order-2 md:order-1 w-full md:w-112.5 lg:w-125 h-1/2 md:h-full overflow-y-auto border-t md:border-t-0 md:border-r border-gray-200 bg-white shadow-md z-20">
+        <div className="order-2 md:order-1 w-full md:w-112.5 lg:w-125 h-1/2 md:h-full overflow-y-auto custom-scrollbar border-t md:border-t-0 md:border-r border-gray-200 bg-white shadow-md z-20">
           <div className="p-4 border-b bg-gray-50 flex justify-between items-center sticky top-0 z-10">
             <div>
               <h2 className="font-bold text-lg text-gray-800">Rezultate</h2>
@@ -158,9 +158,11 @@ function HomeContent() {
             ) : (
               <>
                 {listings.map((l) => (
-                  <div key={l.id} onClick={() => setActiveId(l.id)} className={`cursor-pointer transition-all duration-200 rounded-xl border-2 ${activeId === l.id ? 'border-blue-500 bg-blue-50 shadow-md transform scale-[1.02]' : 'border-transparent hover:bg-gray-50 hover:border-gray-200'}`}>
-                    <ListingCard listing={l} />
-                  </div>
+                  
+                    <div key={l.id} onClick={() => setActiveId(l.id)} className={`cursor-pointer transition-all duration-200 rounded-xl border-2 ${activeId === l.id ? 'border-blue-500 bg-blue-50 shadow-md transform scale-[1.02]' : 'border-transparent hover:bg-gray-50 hover:border-gray-200'}`}>
+                      <ListingCard listing={l} />
+                    </div>
+                  
                 ))}
                 
                 {hasMore && (

@@ -25,11 +25,13 @@ export default function LoginPage() {
 
         if (error) {
             setError('Email sau parolă incorectă.')
+            setLoading(false)
         } else {
-            router.push('/')
+            // SUCCES
             router.refresh()
+            // Navigare la Home
+            router.push('/')
         }
-        setLoading(false)
     }
 
     return (

@@ -53,6 +53,7 @@ class Listing(Base):
 
     agent_profile = relationship("AgentProfile", primaryjoin="foreign(Listing.owner_id) == remote(AgentProfile.id)", uselist=False, viewonly=True)
     
+    contact_phone = Column(String, nullable=True)
 
     fingerprint = Column(String, index=True) 
     image_hash = Column(String, index=True)

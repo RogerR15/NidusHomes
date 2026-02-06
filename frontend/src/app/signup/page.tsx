@@ -14,6 +14,7 @@ export default function SignupPage() {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [message, setMessage] = useState<string | null>(null)
+    const [phone, setPhone] = useState('')
 
     const handleSignUp = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -21,22 +22,41 @@ export default function SignupPage() {
         setError(null)
         setMessage(null)
 
-        const { error } = await supabase.auth.signUp({
+
+        if (!email || !password || !phone) {
+            setError('Toate câmpurile sunt obligatorii!')
+            setLoading(false)
+            return
+        }
+
+        if (password.length < 6) {
+            setError('Parola trebuie să aibă minim 6 caractere.')
+            setLoading(false)
+            return
+        }
+
+        const { data, error } = await supabase.auth.signUp({
             email,
             password,
             options: {
-                emailRedirectTo: `${location.origin}/auth/callback`,
+                data: {
+                    phone: phone, 
+                }
             },
         })
 
+
+        
+
         if (error) {
             setError(error.message)
+            setLoading(false)
         } else {
-            setMessage('Cont creat cu succes! Verifică-ți email-ul pentru a confirma.')
-            setEmail('')
-            setPassword('')
+            // SUCCES: Sesiunea este creată automat
+            router.refresh()
+            // Redirectionam la Home
+            router.push('/')
         }
-        setLoading(false)
     }
 
     return (
@@ -49,14 +69,34 @@ export default function SignupPage() {
 
                 <div className="p-8 space-y-6">
                     <form onSubmit={handleSignUp} className="space-y-5">
+                        {/* Email */}
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Email</label>
                             <input
-                                type="email" required placeholder="nume@exemplu.ro"
-                                value={email} onChange={(e) => setEmail(e.target.value)}
+                                type="email" 
+                                required 
+                                placeholder="nume@exemplu.ro"
+                                value={email} 
+                                onChange={(e) => setEmail(e.target.value)}
                                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-blue-200 transition-all outline-none"
                             />
                         </div>
+
+                        {/* TELEFON */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">
+                                Telefon 
+                            </label>
+                            <input
+                                type="tel" 
+                                required 
+                                placeholder="07xx xxx xxx"
+                                value={phone} 
+                                onChange={(e) => setPhone(e.target.value)}
+                                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-blue-200 transition-all outline-none"
+                            />
+                        </div>
+
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Parolă</label>
                             <input

@@ -9,7 +9,7 @@ import MortgageCalculator from '@/components/MortgageCalculator';
 import PriceHistoryChart from '@/components/PriceHistoryChart';
 import { Separator } from '@/components/ui/separator';
 import ImageGallery from '@/components/ImageGallery';
-import { Eye, Heart } from 'lucide-react';
+import { Eye, Heart, Phone } from 'lucide-react';
 import ContactForm from '@/components/ContactForm';
 
 
@@ -21,7 +21,7 @@ const MiniMap = dynamic(() => import('@/components/MiniMap'), {
 export default function ListingPage() {
     const { id } = useParams();
     const router = useRouter();
-    const [listing, setListing] = useState<any>(null); // Folosim any temporar pt câmpuri noi
+    const [listing, setListing] = useState<any>(null); // Folosim any temporar pt campuri noi
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -210,6 +210,21 @@ export default function ListingPage() {
                                                 </p>
                                             </div>
                                         </div>
+                                        {listing.contact_phone && (
+                                                    <div className="bg-white rounded-lg p-3 border mt-5 border-indigo-100 shadow-sm flex items-center justify-between group/phone hover:border-indigo-300 transition-all cursor-pointer">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="bg-indigo-100 p-2 rounded-full text-indigo-600 group-hover/phone:bg-indigo-600 group-hover/phone:text-white transition-colors">
+                                                                <Phone size={18} />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Telefon Proprietar</p>
+                                                                <a href={`tel:${listing.contact_phone}`} className="text-lg font-black text-gray-800 group-hover/phone:text-indigo-600 transition-colors">
+                                                                    {listing.contact_phone}
+                                                                </a>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
                                     </div>
                             )}  
                         </div>

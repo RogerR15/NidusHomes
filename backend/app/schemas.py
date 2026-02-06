@@ -18,6 +18,7 @@ class ListingBase(BaseModel):
     transaction_type: str = "SALE"
     year_built: Optional[int] = None
     address: Optional[str] = None
+    contact_phone: Optional[str] = None
 
 # Ce primim când cream un anunț (manual, optional)
 class ListingCreate(ListingBase):

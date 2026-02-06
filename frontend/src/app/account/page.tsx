@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
-import { User, Mail, Shield, Calendar, Camera, Save, Loader2 } from 'lucide-react';
+import { User, Mail, Shield, Calendar, Camera, Save, Loader2, Phone } from 'lucide-react';
 
 import imageCompression from 'browser-image-compression';
 import { createClient } from '../../../utils/supabase/client';
@@ -16,6 +16,7 @@ export default function AccountPage() {
     const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [phone, setPhone] = useState('');
 
     const [fullName, setFullName] = useState('');
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -30,6 +31,7 @@ export default function AccountPage() {
             }
             setUser(user);
             setFullName(user.user_metadata?.full_name || '');
+            setPhone(user.user_metadata?.phone || '');
             setAvatarUrl(user.user_metadata?.avatar_url || null);
             setLoading(false);
         };
@@ -103,13 +105,22 @@ export default function AccountPage() {
             setSaving(true);
             setMessage(null);
 
-            const { error } = await supabase.auth.updateUser({
-                data: { full_name: fullName }
+            const { data, error } = await supabase.auth.updateUser({
+                data: { 
+                    full_name: fullName,
+                    phone: phone 
+                }
             });
 
             if (error) throw error;
 
-            toast.success("Profil actualizat cu succes!")
+            if (data.user) {
+                setUser(data.user);
+                setFullName(data.user.user_metadata.full_name || '');
+                setPhone(data.user.user_metadata.phone || '');
+            }
+
+            toast.success("Profil actualizat cu succes!");
             router.refresh();
 
         } catch (error: any) {
@@ -195,6 +206,22 @@ export default function AccountPage() {
                                         placeholder="Ex: Ion Popescu"
                                         className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
                                     />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                            <Phone size={18} />
+                                        </div>
+                                        <input
+                                            type="tel"
+                                            value={phone}
+                                            onChange={(e) => setPhone(e.target.value)}
+                                            placeholder="Ex: 07xx xxx xxx"
+                                            className="w-full rounded-lg border border-gray-300 pl-10 pr-4 py-2 text-gray-900 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+                                        />
+                                    </div>
                                 </div>
 
                                 <div>

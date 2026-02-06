@@ -161,7 +161,7 @@ export default function ContactForm({ listingId, ownerId, agentDetails }: Contac
             });
             
             alert("Recenzia a fost trimisă cu succes!");
-            setShowReview(false); // Închidem formularul
+            setShowReview(false); // Inchidem formularul
             setReviewText("");
             setReviewRating(0);
         } catch (e) {
