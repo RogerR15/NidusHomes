@@ -13,7 +13,8 @@ import {
     MessageCircle,
     Briefcase,
     PlusCircle, // Iconiță nouă pentru "Devino Agent"
-    X
+    X,
+    Search
 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -33,6 +34,7 @@ import { Button } from "@/components/ui/button"
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { createPortal } from 'react-dom';
+import { Input } from "@/components/ui/input";
 
 import {
     Sheet,
@@ -52,9 +54,29 @@ export default function Navbar() {
 
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
 
     const { user, isAgent, loading } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
+
+    useEffect(() => {
+        setSearchQuery(searchParams.get('q') || '');
+    }, [searchParams]);
+
+    const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            const params = new URLSearchParams(searchParams.toString());
+            if (searchQuery.trim()) {
+                params.set('q', searchQuery);
+            } else {
+                params.delete('q');
+            }
+            router.push(`/?${params.toString()}`);
+            
+            // Optional: Inchidem tastatura pe mobil (blur)
+            (e.target as HTMLInputElement).blur();
+        }
+    }
 
     useEffect(() => {
         setMounted(true);
@@ -174,6 +196,49 @@ export default function Navbar() {
 
                     </SheetContent>
                 </Sheet>
+            </div>
+
+            {/* --- ZONA CENTRU: SEARCH BAR (MOBIL) --- */}
+            <div className="flex-1 mx-2 md:hidden">
+                <div className="relative w-full">
+                    <Input 
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={handleSearch}
+                        placeholder="Cauta adresa, cartier..."
+                        // STIL IDENTIC CU FILTERBAR: Alb, Border, h-10
+                        className="w-full h-10 border-gray-300 pl-3 pr-10 focus-visible:ring-blue-500 bg-white"
+                    />
+                    
+                    {/* Logica pentru butonul din dreapta (X sau Lupa) */}
+                    {searchQuery ? (
+                        <button 
+                            onClick={() => {
+                                setSearchQuery('');
+                                // Opțional: Dacă vrei să resetezi și URL-ul când ștergi textul:
+                                // const params = new URLSearchParams(searchParams.toString());
+                                // params.delete('q');
+                                // router.push(`/?${params.toString()}`);
+                            }}
+                            className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
+                    ) : (
+                        <button 
+                            // Facem butonul de lupa sa declanseze cautarea si la click
+                            onClick={() => {
+                                const params = new URLSearchParams(searchParams.toString());
+                                if (searchQuery.trim()) params.set('q', searchQuery);
+                                router.push(`/?${params.toString()}`);
+                            }}
+                            className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                        >
+                            <Search className="h-5 w-5" />
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* CENTRU */}

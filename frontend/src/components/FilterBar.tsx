@@ -27,7 +27,6 @@ export default function FilterBar() {
     const [openBeds, setOpenBeds] = useState(false);
 
     // INITIALIZARE
-    // Asta asigura ca daca dai refresh, inputurile sunt completate corect.
     useEffect(() => {
         setFilters({
             neighborhood: searchParams.get('q') || '',
@@ -38,23 +37,14 @@ export default function FilterBar() {
         });
     }, [searchParams]);
 
-    // FUNCTIA CARE TRIMITE DATELE IN URL (COMMIT)
-    // Aceasta se apeleaza DOAR cand utilizatorul a terminat de ales (Enter, Apply, Click optiune)
+    // FUNCTIA CARE TRIMITE DATELE IN URL
     const commitFiltersToURL = (currentFilters: typeof filters) => {
-        const params = new URLSearchParams(); // Pornim curat, reconstruim URL-ul pe baza statului curent
+        const params = new URLSearchParams(); 
 
-        // Pastram parametrii existenti care nu tin de filtrare (daca exista)
-        // searchParams.forEach((value, key) => params.set(key, value)); 
-
-        // Scriem noile valori
         if (currentFilters.transaction_type) params.set('type', currentFilters.transaction_type);
-
         if (currentFilters.neighborhood) params.set('q', currentFilters.neighborhood);
-
         if (currentFilters.min_price) params.set('min_price', currentFilters.min_price);
-
         if (currentFilters.max_price) params.set('max_price', currentFilters.max_price);
-
         if (currentFilters.rooms && currentFilters.rooms !== 'all') {
             params.set('rooms', currentFilters.rooms);
         }
@@ -62,36 +52,30 @@ export default function FilterBar() {
         router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     };
 
-    //HANDLERS PENTRU INPUTURI
-
-    // A. Pentru TEXT (Search, Pret) - Actualizeaza doar State-ul Local
+    // HANDLERS
     const handleLocalChange = (field: string, value: string) => {
         setFilters(prev => ({ ...prev, [field]: value }));
     };
 
-    // B. Pentru SEARCH (Cand dai Enter sau Click pe Lupa)
     const handleSearchSubmit = () => {
         commitFiltersToURL(filters);
     };
 
-    // C. Pentru DROPDOWNS (Type, Rooms)
     const handleImmediateSelection = (field: string, value: string) => {
         const updatedFilters = { ...filters, [field]: value };
-        setFilters(updatedFilters); // Update vizual
-        commitFiltersToURL(updatedFilters); // Update URL
+        setFilters(updatedFilters); 
+        commitFiltersToURL(updatedFilters); 
     };
 
-    // D. Pentru Pret (Butonul Apply)
     const handlePriceApply = () => {
         commitFiltersToURL(filters);
         setOpenPrice(false);
     };
 
-    // E. Enter Key
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter') {
             handleSearchSubmit();
-            setOpenPrice(false); // Inchidem si popover-ul de pret daca suntem acolo
+            setOpenPrice(false);
         }
     };
 
@@ -108,21 +92,21 @@ export default function FilterBar() {
         return "Camere";
     };
 
-    const triggerStyles = "h-12 px-4 justify-between font-normal border-gray-300 hover:bg-gray-50 hover:text-gray-900 bg-white";
+    const triggerStyles = "h-10 lg:h-12 px-3 lg:px-4 justify-between font-normal border-gray-300 hover:bg-gray-50 hover:text-gray-900 bg-white text-sm whitespace-nowrap";
     const activeTriggerStyles = "border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-50 hover:text-blue-700 font-medium";
 
     return (
-        <div className="bg-white border-b border-gray-200 p-3 flex flex-col lg:flex-row gap-3 items-center shadow-sm sticky top-0 z-30">
+        <div className="bg-white border-b border-gray-200 p-2 lg:p-3 flex flex-col lg:flex-row gap-2 lg:gap-3 items-center shadow-sm sticky top-0 z-30">
 
-            {/* SEARCH BAR */}
-            <div className="relative w-full lg:w-80 shrink-0">
+            {/* SEARCH BAR - ASCUNS PE MOBIL  */}
+            <div className="relative w-full lg:w-80 shrink-0 hidden md:block">
                 <Input
                     type="text"
                     placeholder="Cauta adresa, cartier..."
-                    className="w-full h-12 border-gray-300 pl-3 pr-10 focus-visible:ring-blue-500 bg-white"
+                    className="w-full h-10 lg:h-12 border-gray-300 pl-3 pr-10 focus-visible:ring-blue-500 bg-white"
                     value={filters.neighborhood}
-                    onChange={(e) => handleLocalChange('neighborhood', e.target.value)} // Doar local
-                    onKeyDown={handleKeyDown} // Commit la Enter
+                    onChange={(e) => handleLocalChange('neighborhood', e.target.value)}
+                    onKeyDown={handleKeyDown}
                 />
                 {filters.neighborhood ? (
                     <button
@@ -131,19 +115,19 @@ export default function FilterBar() {
                             setFilters(reset);
                             commitFiltersToURL(reset);
                         }}
-                        className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
+                        className="absolute right-3 top-2.5 lg:top-3.5 text-gray-400 hover:text-gray-600"
                     >
                         <X className="h-5 w-5" />
                     </button>
                 ) : (
-                    <button onClick={handleSearchSubmit} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600">
+                    <button onClick={handleSearchSubmit} className="absolute right-3 top-2.5 lg:top-3.5 text-gray-400 hover:text-gray-600">
                         <Search className="h-5 w-5" />
                     </button>
                 )}
             </div>
 
-            {/* FILTRE */}
-            <div className="flex flex-wrap gap-2 w-full items-center">
+            {/* FILTRE - SCROLLABIL ORIZONTAL PE MOBIL */}
+            <div className="flex flex-row overflow-x-auto pb-1 lg:pb-0 gap-2 w-full items-center no-scrollbar">
 
                 {/* A. Tip Tranzactie */}
                 <Popover open={openType} onOpenChange={setOpenType}>
@@ -165,7 +149,7 @@ export default function FilterBar() {
                 <Popover open={openPrice} onOpenChange={setOpenPrice}>
                     <PopoverTrigger asChild>
                         <Button variant="outline" className={cn(triggerStyles, (filters.min_price || filters.max_price || openPrice) ? activeTriggerStyles : "")}>
-                            <span className="truncate max-w-37.5">{getPriceLabel()}</span>
+                            <span className="truncate max-w-25 lg:max-w-37.5">{getPriceLabel()}</span>
                             <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
                         </Button>
                     </PopoverTrigger>
