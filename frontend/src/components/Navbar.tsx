@@ -12,7 +12,8 @@ import {
     LayoutList,
     MessageCircle,
     Briefcase,
-    PlusCircle // Iconiță nouă pentru "Devino Agent"
+    PlusCircle, // Iconiță nouă pentru "Devino Agent"
+    X
 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -31,6 +32,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { createPortal } from 'react-dom';
+
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+    SheetClose // Importam asta pentru a putea inchide meniul
+} from "@/components/ui/sheet"
+
 
 export default function Navbar() {
     const searchParams = useSearchParams();
@@ -38,7 +50,24 @@ export default function Navbar() {
     const currentType = searchParams.get('type') || 'SALE';
     const supabase = createClient();
 
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
     const { user, isAgent, loading } = useAuth();
+    const [isOpen, setIsOpen] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (mobileMenuOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [mobileMenuOpen]);
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
@@ -56,8 +85,11 @@ export default function Navbar() {
         return name.slice(0, 1).toUpperCase();
     }
 
+
+
     return (
-        <header className="sticky top-0 w-full bg-white/80 backdrop-blur-md border-b border-gray-100 py-3 px-4 md:px-8 flex items-center justify-between z-50 transition-all">
+        
+            <header className="sticky top-0 w-full bg-white/80 backdrop-blur-md border-b border-gray-100 py-3 px-4 md:px-8 flex items-center justify-between z-50 transition-all">
 
             {/* STANGA */}
             <nav className="hidden md:flex items-center gap-8">
@@ -67,10 +99,81 @@ export default function Navbar() {
             </nav>
 
             {/* MOBIL */}
-            <div className="md:hidden">
-                <Button variant="ghost" size="icon" className="text-slate-700">
-                    <Menu size={24} />
-                </Button>
+            
+                <div className="md:hidden">
+                <Sheet open={isOpen} onOpenChange={setIsOpen}>
+                    {/* TRIGGER (BUTONUL HAMBURGER) */}
+                    <SheetTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-slate-700">
+                            <Menu size={24} />
+                        </Button>
+                    </SheetTrigger>
+
+                    {/* CONTENT (SIDEBAR-UL) - side="left" il face sa vina din stanga */}
+                    {/* IMPORTANT: className="z-[9999]" suprascrie default-ul Shadcn (z-50) ca sa fim peste butonul de harta */}
+                    <SheetContent side="left" className="z-9999 w-70 p-0 bg-white">
+                        
+                        {/* Header Sidebar */}
+                        <SheetHeader className="p-4 border-b border-gray-100 text-left">
+                            <SheetTitle className="text-xl font-black text-slate-900 flex items-center gap-1">
+                                Nidus<span className="text-blue-700">Homes</span>
+                            </SheetTitle>
+                        </SheetHeader>
+
+                        {/* Linkuri Navigare */}
+                        <div className="flex-1 overflow-y-auto py-6 px-4 space-y-2">
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Imobiliare</p>
+                            
+                            {/* Folosim onClick={() => setIsOpen(false)} ca sa inchidem meniul dupa click */}
+                            <Link 
+                                href="/?type=SALE" 
+                                onClick={() => setIsOpen(false)}
+                                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${currentType === 'SALE' ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-gray-50'}`}
+                            >
+                                Cumpara
+                            </Link>
+
+                            <Link 
+                                href="/?type=RENT" 
+                                onClick={() => setIsOpen(false)}
+                                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${currentType === 'RENT' ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-gray-50'}`}
+                            >
+                                Închiriaza
+                            </Link>
+
+                            <Link 
+                                href="#" 
+                                onClick={() => setIsOpen(false)}
+                                className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-gray-50 font-medium"
+                            >
+                                Vinde proprietate
+                            </Link>
+
+                            <div className="my-4 border-t border-gray-100"></div>
+
+                            {!user && (
+                                <div className="space-y-3 mt-4">
+                                     <Link href="/login" onClick={() => setIsOpen(false)}>
+                                        <Button variant="outline" className="w-full justify-start h-12 text-slate-700 font-bold border-gray-300">
+                                            Autentificare
+                                        </Button>
+                                    </Link>
+                                    <Link href="/signup" onClick={() => setIsOpen(false)}>
+                                        <Button className="w-full justify-start h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold">
+                                            <User className="mr-2 h-4 w-4" /> Creează Cont Gratuit
+                                        </Button>
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer Sidebar */}
+                        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gray-50 border-t border-gray-100 text-center">
+                            <p className="text-xs text-gray-400">© 2025 NidusHomes</p>
+                        </div>
+
+                    </SheetContent>
+                </Sheet>
             </div>
 
             {/* CENTRU */}
@@ -224,5 +327,7 @@ export default function Navbar() {
                 )}
             </div>
         </header>
+
+ 
     );
 }

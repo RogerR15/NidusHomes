@@ -191,11 +191,11 @@ function HomeContent() {
 
         {/* ZONA B: HARTA */}
         <div className={`
-            w-full md:flex-1 h-full relative z-10
+            w-full md:flex-1 h-full relative z-[1001]
             ${!showMapMobile ? 'hidden' : 'block'} md:block
         `}>
           
-          <MapView listings={mapListings} activeId={activeId} setActiveId={setActiveId} />
+          <MapView listings={mapListings} activeId={activeId} setActiveId={setActiveId} forceRefresh={showMapMobile}/>
           
           {loading && listings.length === 0 && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white px-4 py-2 rounded-full shadow-lg z-1000 flex items-center gap-2 pointer-events-none">
@@ -205,7 +205,7 @@ function HomeContent() {
           )}
         </div>
 
-        <div className="md:hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
+        <div className="md:hidden  fixed bottom-6 left-1/2 transform -translate-x-1/2 z-1000">
             <button
                 onClick={() => setShowMapMobile(!showMapMobile)}
                 className="flex items-center gap-2 bg-gray-900 text-white px-6 py-3.5 rounded-full shadow-2xl font-semibold hover:bg-black transition-transform active:scale-95"
