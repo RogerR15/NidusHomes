@@ -1,10 +1,18 @@
 'use client';
-import { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { useEffect, useRef, useState } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, GeoJSON, FeatureGroup, useMap } from 'react-leaflet';
+import { EditControl } from "react-leaflet-draw";
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import Link from 'next/link';
+import 'leaflet/dist/leaflet.css';
+import 'leaflet-draw/dist/leaflet.draw.css';
+
+import { iasiGeoJSON } from '../../data/iasi-geojson';
+
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
+import { point, polygon } from '@turf/helpers';
 
 function MapResizer({ trigger }: { trigger: boolean }) {
     const map = useMap();
@@ -73,10 +81,56 @@ function MapController({ activeListing, clusterGroupRef }: { activeListing: any,
     return null;
 }
 
-export default function MapView({ listings, activeId, setActiveId, forceRefresh = false }: any) {
+export default function MapView({ listings, activeId, setActiveId, setFilterPolygon, forceRefresh = false }: any) {
     const clusterGroupRef = useRef<any>(null);
     const activeListing = listings.find((l: any) => l.id === activeId);
 
+    const [drawnPolygon, setDrawnPolygon] = useState<any>(null);
+    const featureGroupRef = useRef<any>(null);
+
+    useEffect(() => {
+        const saved = sessionStorage.getItem('user_search_polygon');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                setDrawnPolygon(parsed);
+                if (setFilterPolygon) setFilterPolygon(parsed); // Reactivam filtrul
+                console.log("Restored polygon from storage");
+            } catch (e) {
+                console.error("Failed to parse saved polygon", e);
+            }
+        }
+    }, [setFilterPolygon]);
+
+    const _onCreated = (e: any) => {
+        const { layerType, layer } = e;
+        if (layerType === 'polygon' || layerType === 'rectangle') {
+            const geoJSON = layer.toGeoJSON();
+            console.log("Zona desenata:", geoJSON);
+            
+            // Setam statul local pentru a filtra vizual
+            setDrawnPolygon(geoJSON);
+
+            // Trimitem si parintelui (daca e cazul, pentru lista din stanga)
+            if (setFilterPolygon) {
+                setFilterPolygon(geoJSON);
+            }
+            sessionStorage.setItem('user_search_polygon', JSON.stringify(geoJSON));
+        } else if (layerType === 'circle') {
+             // Cercul e mai complicat cu Turf (trebuie convertit in poligon sau calculata distanta)
+             // Pentru simplitate, acum suportam doar poligoane/dreptunghiuri
+             alert("Momentan filtrarea funcționează doar cu Poligon sau Dreptunghi.");
+        }
+    };
+
+    const _onDeleted = (e: any) => {
+        console.log("Zona stearsa");
+        setDrawnPolygon(null);
+        if (setFilterPolygon) setFilterPolygon(null);
+        sessionStorage.removeItem('user_search_polygon');
+    };
+
+    
     const getImageUrl = (url: string | null, source: string) => {
         if (!url) return null;
         if (source === 'OLX') {
@@ -89,7 +143,23 @@ export default function MapView({ listings, activeId, setActiveId, forceRefresh 
         const lat = Number(l.latitude ?? l.lat);
         const lng = Number(l.longitude ?? l.lng ?? l.lon);
 
-        return !isNaN(lat) && !isNaN(lng) && (lat !== 0 || lng !== 0);
+        // 1. Verificam daca are coordonate valide
+        const isValid = !isNaN(lat) && !isNaN(lng) && (lat !== 0 || lng !== 0);
+        if (!isValid) return false;
+
+        // 2. Daca avem un poligon desenat, verificam daca punctul e inauntru
+        if (drawnPolygon) {
+            try {
+                const pt = point([lng, lat]); // Atentie: Turf foloseste [Longitudine, Latitudine]
+                const poly = polygon(drawnPolygon.geometry.coordinates);
+                return booleanPointInPolygon(pt, poly);
+            } catch (err) {
+                console.error("Eroare filtrare turf:", err);
+                return true; // Daca e eroare, il aratam oricum
+            }
+        }
+
+        return true;
     });
 
 
@@ -109,6 +179,46 @@ export default function MapView({ listings, activeId, setActiveId, forceRefresh 
                 <MapResizer trigger={forceRefresh} />
 
                 <MapController activeListing={activeListing} clusterGroupRef={clusterGroupRef} />
+
+                <GeoJSON 
+                    data={iasiGeoJSON as any} 
+                    style={() => ({
+                        color: '#3b82f6',     // Albastru
+                        weight: 2,
+                        fillColor: '#3b82f6', 
+                        fillOpacity: 0.08,    // Foarte transparent
+                        dashArray: '5, 5'
+                    })}
+                />
+
+                {drawnPolygon && (
+                    <GeoJSON 
+                        key="saved-polygon-layer" // Key e important ca sa se re-randeze cand se schimba
+                        data={drawnPolygon}
+                        style={{ color: '#ef4444', weight: 4, fillOpacity: 0.2 }}
+                    />
+                )}
+
+                {/* --- B. UNELTE DE DESENAT (MANUAL) --- */}
+                <FeatureGroup ref={featureGroupRef}>
+                    <EditControl
+                        position='topright'
+                        onCreated={_onCreated}
+                        onDeleted={_onDeleted}
+                        draw={{
+                            rectangle: true,
+                            polyline: false,
+                            circlemarker: false,
+                            marker: false,
+                            circle: false,
+                            polygon: {
+                                allowIntersection: false,
+                                showArea: true,
+                                shapeOptions: { color: '#ef4444' }
+                            }
+                        }}
+                    />
+                </FeatureGroup>
 
                 <MarkerClusterGroup
                     ref={clusterGroupRef}
@@ -247,10 +357,20 @@ export default function MapView({ listings, activeId, setActiveId, forceRefresh 
                     })}
                 </MarkerClusterGroup>
             </MapContainer>
-            {activeId && (
+            {(activeId || drawnPolygon) && (
                 <button
-                    onClick={() => setActiveId(null)}
-                    className="absolute top-4 right-4 z-1000 bg-white text-blue-600 px-4 py-2 rounded-lg shadow-xl font-bold border border-blue-100 hover:bg-blue-50 transition-all flex items-center gap-2"
+                    onClick={() => {
+                        setActiveId(null);
+                        setDrawnPolygon(null); 
+                        if (setFilterPolygon) setFilterPolygon(null);
+
+                        sessionStorage.removeItem('user_search_polygon');
+
+                        if (featureGroupRef.current) {
+                            featureGroupRef.current.clearLayers();
+                        }
+                    }}
+                    className="absolute top-4 right-14 z-1000 bg-white text-blue-600 px-4 py-2 rounded-lg shadow-xl font-bold border border-blue-100 hover:bg-blue-50 transition-all flex items-center gap-2"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
                     Reset View

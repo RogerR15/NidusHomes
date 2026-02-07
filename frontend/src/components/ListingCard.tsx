@@ -99,7 +99,7 @@ export default function ListingCard({ listing }: { listing: Listing }) {
 
             <div className="group relative border rounded-xl overflow-hidden shadow-sm hover:shadow-xl bg-white cursor-pointer transition-all duration-300 border-gray-100 hover:border-blue-400 flex flex-col h-full">
 
-                <div className="absolute top-3 left-3 z-1 flex flex-col gap-2 items-start">
+                <div className="absolute top-12 left-2  z-1 flex flex-col gap-2 items-start">
                     {isNew && (
                         <Badge className="bg-blue-600/90 hover:bg-blue-700 backdrop-blur-sm text-white border-none shadow-sm px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold">
                             <Clock size={10} className="mr-1" /> Nou
@@ -164,11 +164,15 @@ export default function ListingCard({ listing }: { listing: Listing }) {
                         <p className="text-blue-600 font-black text-2xl">
                             {displayPrice.toLocaleString()} € {isRent && <span className="text-sm text-gray-500 font-normal">/ luna</span>}
                         </p>
+
+                        
                     </div>
 
                     <h3 className="font-semibold text-gray-800 text-sm line-clamp-2 h-10 mb-2 group-hover:text-blue-700">
                         {listing.title}
                     </h3>
+
+                    
 
                     {/* Locatie */}
                     <div className="flex items-center text-slate-500 text-xs mb-2 gap-1.5">
