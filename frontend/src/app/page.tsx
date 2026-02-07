@@ -191,7 +191,7 @@ function HomeContent() {
 
         {/* ZONA B: HARTA */}
         <div className={`
-            w-full md:flex-1 h-full relative z-1000
+            w-full md:flex-1 h-full relative z-40
             ${!showMapMobile ? 'hidden' : 'block'} md:block
         `}>
           
