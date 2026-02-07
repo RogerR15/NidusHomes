@@ -278,7 +278,7 @@ export default function Navbar() {
                             </Button>
                         </DropdownMenuTrigger>
 
-                        <DropdownMenuContent className="w-60 p-2 mt-2" align="end" forceMount>
+                        <DropdownMenuContent className="w-60 p-2 mt-2 z-1002" align="end" forceMount>
                             {/* Header User */}
                             <div className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg mb-2">
                                 <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold overflow-hidden">
