@@ -1,11 +1,12 @@
 'use client';
-import { useState } from 'react';
-import { Send, MessageSquare, AlertTriangle, ShieldCheck, Star } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Send, MessageSquare, AlertTriangle, ShieldCheck, Star, LogIn, UserPlus } from 'lucide-react';
 import axios from 'axios';
 import Link from 'next/link';
 import { createClient } from '../../utils/supabase/client';
 import ClaimModal from './ClaimModal';
 import StarRating from './StarRating'; 
+import { useRouter } from 'next/navigation';
 
 interface ContactFormProps {
     listingId: number;
@@ -32,9 +33,23 @@ export default function ContactForm({ listingId, ownerId, agentDetails }: Contac
     
     const supabase = createClient();
 
-    
+    // State pentru Auth
+    const [user, setUser] = useState<any>(null);
+    const [authLoading, setAuthLoading] = useState(true);
+
+    const router = useRouter();
+
+    useEffect(() => {
+        const checkUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            setUser(user);
+            setAuthLoading(false);
+        };
+        checkUser();
+    }, []);
+
+
     // ANUNT NEREVENDICAT (Fara Proprietar)
-    
     if (!ownerId) {
         return (
             <>
@@ -98,6 +113,47 @@ export default function ContactForm({ listingId, ownerId, agentDetails }: Contac
                 >
                     Trimite alt mesaj
                 </button>
+            </div>
+        );
+    }
+
+    // Loading Auth
+    if (authLoading) {
+        return <div className="h-64 bg-gray-50 rounded-xl animate-pulse border border-gray-100"></div>;
+    }
+
+    // LOGICA NEAUTENTIFICAT (Daca nu e logat, aratam panoul de login)
+    if (!user) {
+        return (
+            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm sticky top-24 text-center">
+                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
+                    <MessageSquare size={32} />
+                </div>
+                
+                <h3 className="font-bold text-gray-900 text-lg mb-2">Vrei să contactezi proprietarul?</h3>
+                <p className="text-sm text-gray-500 mb-6 px-2">
+                    Trebuie să ai un cont activ pentru a trimite mesaje, a stabili vizionări și a lăsa recenzii.
+                </p>
+                
+                <div className="space-y-3">
+                    <button 
+                        onClick={() => router.push('/login')} 
+                        className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition shadow-sm"
+                    >
+                        <LogIn size={18} /> Autentificare
+                    </button>
+                    
+                    <button 
+                        onClick={() => router.push('/signup')} 
+                        className="flex items-center justify-center gap-2 w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-3 rounded-lg transition"
+                    >
+                        <UserPlus size={18} /> Creează Cont Nou
+                    </button>
+                </div>
+                
+                <p className="text-xs text-gray-400 mt-4">
+                    Este gratuit și durează mai puțin de 1 minut.
+                </p>
             </div>
         );
     }

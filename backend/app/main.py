@@ -1021,6 +1021,21 @@ def get_agent_leads(
     clean_agent_id = normalize_id(agent_id)
 
     for conv in conversations:
+
+        buyer_profile = {}
+        try:
+            # Acum avem tabelul 'profiles', deci nu va mai da eroare!
+            res = supabase.table("profiles").select("full_name, avatar_url").eq("id", str(conv.buyer_id)).execute()
+            
+            if res.data and len(res.data) > 0:
+                buyer_profile = res.data[0]
+        except Exception as e:
+            print(f"Nu am gasit profil pt {conv.buyer_id}: {e}")
+
+        # Setăm datele
+        client_name = buyer_profile.get("full_name") or f"Client #{str(conv.buyer_id)[:5]}"
+        client_avatar = buyer_profile.get("avatar_url")
+
         # Luăm ultimul mesaj
         last_msg = db.query(models.Message).filter(
             models.Message.conversation_id == conv.id
@@ -1039,7 +1054,7 @@ def get_agent_leads(
             if clean_sender_id == clean_agent_id:
                 sender_name = "Tu"
             else:
-                sender_name = client_display
+                sender_name = client_name
             
             preview_text = f"{sender_name}: {last_msg.content}"
 
@@ -1056,7 +1071,9 @@ def get_agent_leads(
 
         formatted_leads.append({
             "id": conv.id,
-            "client_name": client_display,
+            "listing_id": conv.listing_id,
+            "client_name": client_name,
+            "client_avatar": client_avatar,
             "client_phone": "Vezi Chat", 
             "message": preview_text,
             "created_at": conv.updated_at if conv.updated_at else conv.created_at,

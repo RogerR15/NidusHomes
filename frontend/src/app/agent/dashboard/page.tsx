@@ -240,15 +240,29 @@ export default function AgentDashboard() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
+                                        
                                         {leads.map((lead) => (
                                             <tr key={lead.id} className="hover:bg-blue-50/30 transition group cursor-pointer" onClick={() => goToChat(lead.id)}>
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-8 h-8 rounded-full bg-linear-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs">
-                                                            {lead.client_name ? lead.client_name[0].toUpperCase() : 'C'}
+                                                        {/* ZONA AVATAR */}
+                                                        <div className="w-12 h-12 rounded-full shrink-0 relative">
+                                                            {lead.client_avatar ? (
+                                                                <img
+                                                                    src={lead.client_avatar}
+                                                                    alt={lead.client_name}
+                                                                    className="w-full h-full rounded-full object-cover border border-gray-100"
+                                                                />
+                                                            ) : (
+                                                                <div className="w-full h-full rounded-full bg-linear-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs">
+                                                                    {lead.client_name ? lead.client_name[0].toUpperCase() : 'C'}
+                                                                </div>
+                                                            )}
                                                         </div>
+
+                                                        {/* NUME SI ID */}
                                                         <div>
-                                                            <p className="font-bold text-gray-900">{lead.client_name}</p>
+                                                            <p className="font-bold text-gray-900">{lead.client_name || "Client Necunoscut"}</p>
                                                             <p className="text-xs text-gray-500">ID #{lead.listing_id}</p>
                                                         </div>
                                                     </div>

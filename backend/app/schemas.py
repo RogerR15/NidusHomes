@@ -145,8 +145,10 @@ class AgentProfileCreate(BaseModel):
 
 class LeadOut(BaseModel):
     id: int
+    listing_id: Optional[int] = None
     client_name: str
-    client_phone: str
+    client_avatar: Optional[str] = None
+    client_phone: Optional[str] = None
     message: Optional[str] = None
     status: str
     created_at: datetime
