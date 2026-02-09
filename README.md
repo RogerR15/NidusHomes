@@ -124,7 +124,7 @@ The project uses a relational schema with Cascade Deletes to ensure data integri
 
 - [x] Implement "Search by Radius" drawing on the map.
 - [x] Add Price History charts for users.(demo data)
-- [ ] Notifications system (Email/In-app) for saved searches.
+- [x] Notifications system (Email/In-app) for saved searches.
 - [ ] Mobile App (React Native).
 
 ## 🤝 Contributing
