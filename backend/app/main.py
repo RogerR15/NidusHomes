@@ -614,7 +614,7 @@ def get_my_conversations(
     except:
         raise HTTPException(401, detail="Token invalid")
 
-    # 1. Luăm conversațiile
+    # 1. Luam conversatiile
     conversations = db.query(models.Conversation).options(
         joinedload(models.Conversation.listing)
     ).filter(
@@ -623,27 +623,27 @@ def get_my_conversations(
 
     results = []
     
-    # 2. Pentru fiecare, calculăm dacă are mesaje necitite
+    # 2. Pentru fiecare, calculam daca are mesaje necitite
     for conv in conversations:
-        # Numărăm mesajele unde: conversația e asta, NU sunt eu expeditorul, și is_read e False
+        # Numaram mesajele unde: conversatia e asta, NU sunt eu expeditorul, și is_read e False
         unread_count = db.query(models.Message).filter(
             models.Message.conversation_id == conv.id,
             models.Message.sender_id != user_id, 
             models.Message.is_read == False
         ).count()
 
-        # Luăm ultimul mesaj pentru preview
+        # Luam ultimul mesaj pentru preview
         last_msg = db.query(models.Message).filter(
             models.Message.conversation_id == conv.id
         ).order_by(desc(models.Message.created_at)).first()
 
-        # Convertim la schemă
+        # Convertim la schema
         conv_data = schemas.ConversationOut.model_validate(conv)
         
-        # Populăm datele extra
+        # Populam datele extra
         conv_data.has_unread = (unread_count > 0)
         conv_data.unread_count = unread_count
-        conv_data.last_message = last_msg.content if last_msg else "Începe discuția"
+        conv_data.last_message = last_msg.content if last_msg else "Începe discutia"
 
         results.append(conv_data)
 
@@ -763,35 +763,35 @@ def create_cma_pdf(
     authorization: str = Header(None),
     db: Session = Depends(get_db)
 ):
-    # 1. Găsim casa TA
+    # 1. Gasim casa TA
     target = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
     if not target: raise HTTPException(404, detail="Listing not found")
     
     # --- FIX: EXTRAGERE DATE SAFE (cu getattr) ---
     t_price = getattr(target, 'price_eur', 0)
-    t_surface = getattr(target, 'sqm', 0) # Dacă nu există, pune 0
+    t_surface = getattr(target, 'sqm', 0) 
     t_rooms = getattr(target, 'rooms', 0)
     t_neighborhood = getattr(target, 'neighborhood', None)
     
-    # 2. Definim marjele de comparație
+    # 2. Definim marjele de comparatie
     price_min = t_price * 0.8
     price_max = t_price * 1.2
     
-    # Construim query-ul de bază
+    # Construim query-ul de baza
     query = db.query(models.Listing).filter(
         models.Listing.id != target.id,
         models.Listing.price_eur >= price_min,
         models.Listing.price_eur <= price_max
     )
 
-    # Adăugăm filtre opționale DOAR dacă atributele există în model
+    # Adaugam filtre optionale DOAR daca atributele exista în model
     if hasattr(models.Listing, 'rooms') and t_rooms > 0:
         query = query.filter(models.Listing.rooms == t_rooms)
 
     if hasattr(models.Listing, 'neighborhood') and t_neighborhood:
         query = query.filter(models.Listing.neighborhood == t_neighborhood)
 
-    # Filtrăm după suprafață DOAR dacă există coloana 'sqm' în model și avem o valoare
+    # Filtram dupa suprafata DOAR daca exista coloana 'sqm' în model și avem o valoare
     if hasattr(models.Listing, 'sqm') and t_surface > 0:
         surface_min = t_surface * 0.8
         surface_max = t_surface * 1.2
@@ -800,12 +800,12 @@ def create_cma_pdf(
             models.Listing.sqm <= surface_max
         )
 
-    # Luăm maxim 5 rezultate
+    # Luam maxim 5 rezultate
     comparables = query.limit(5).all()
     
-    print(f"📊 CMA: Am găsit {len(comparables)} proprietăți similare.")
+    print(f"CMA: Am gasit {len(comparables)} proprietati similare.")
 
-    # 3. Generăm PDF-ul
+    # 3. Generam PDF-ul
     file_path = generate_cma_report(target, comparables)
     
     return FileResponse(file_path, media_type='application/pdf', filename=f"CMA_Analiza.pdf")
@@ -822,7 +822,7 @@ def update_my_agent_profile(
     token = authorization.split(" ")[1]
     user_id = str(supabase.auth.get_user(token).user.id)
 
-    # Căutăm profilul existent sau creăm unul nou
+    # Cautam profilul existent sau cream unul nou
     agent = db.query(models.AgentProfile).filter(models.AgentProfile.id == user_id).first()
     
     if not agent:
@@ -832,7 +832,7 @@ def update_my_agent_profile(
         agent.agency_name = profile_data.agency_name
         agent.phone_number = profile_data.phone_number
         agent.bio = profile_data.bio
-        # agent.logo_url = ... (dacă trimiți și logo)
+        # agent.logo_url = ... (daca trimiti și logo)
     
     db.commit()
     db.refresh(agent)
@@ -863,14 +863,14 @@ def update_my_agent_profile(
     if not authorization: raise HTTPException(401)
     token = authorization.split(" ")[1]
     
-    # Luăm datele userului curent
+    # Luam datele userului curent
     user_auth = supabase.auth.get_user(token)
     user_email = user_auth.user.email
     user_id = str(user_auth.user.id)
 
     agent = db.query(models.AgentProfile).filter(models.AgentProfile.id == user_id).first()
     
-    # Creăm sau Actualizăm
+    # Cream sau Actualizam
     if not agent:
         agent = models.AgentProfile(id=user_id, **profile_data.dict())
         db.add(agent)
@@ -881,8 +881,8 @@ def update_my_agent_profile(
         agent.cui = profile_data.cui
         agent.website = profile_data.website
         
-        # --- VERIFICARE AUTOMATĂ (DOMAIN MATCH) ---
-        # Verificăm dacă domeniul emailului corespunde cu site-ul agenției
+        # --- VERIFICARE AUTOMATa (DOMAIN MATCH) ---
+        # Verificam daca domeniul emailului corespunde cu site-ul agentiei
         
         is_verified_now = False
         
@@ -895,15 +895,15 @@ def update_my_agent_profile(
             if '@' in user_email:
                 email_domain = user_email.split('@')[1]
                 
-                # 3. Lista domeniilor publice (care NU primesc verificare automată)
+                # 3. Lista domeniilor publice (care NU primesc verificare automata)
                 public_domains = ['gmail.com', 'yahoo.com', 'yahoo.ro', 'outlook.com', 'icloud.com', 'hotmail.com']
                 
                 if email_domain not in public_domains:
                     if site_domain == email_domain:
                         is_verified_now = True
-                        print(f"✅ AUTO-VERIFICAT: {user_email} match cu {site_domain}")
+                        print(f"AUTO-VERIFICAT: {user_email} match cu {site_domain}")
 
-        # Aplicăm statusul
+        # Aplicam statusul
         if is_verified_now:
             agent.is_verified = True
         else:
@@ -912,14 +912,14 @@ def update_my_agent_profile(
     db.commit()
     db.refresh(agent)
     
-    # Returnăm obiectul și adăugăm un flag custom în răspuns dacă e verificat
+    # Returnam obiectul și adaugam un flag custom în raspuns daca e verificat
     response_object = profile_data.dict()
-    # Putem injecta is_verified în răspuns dacă modificăm schema de răspuns, 
+    # Putem injecta is_verified în raspuns daca modificam schema de raspuns, 
     # dar frontend-ul va face redirect oricum.
     
     return response_object
 
-# 3. Endpoint GET Profil (ca să populăm formularul când intră din nou)
+# 3. Endpoint GET Profil (ca sa populam formularul când intra din nou)
 @app.get("/agent/profile")
 def get_my_agent_profile(
     authorization: str = Header(None),
@@ -947,22 +947,22 @@ def create_review(
     user_auth = supabase.auth.get_user(token)
     client_id = str(user_auth.user.id)
 
-    # 1. Nu te poți nota singur
+    # 1. Nu te poti nota singur
     if client_id == review_data.agent_id:
-        raise HTTPException(400, detail="Nu îți poți lăsa singur recenzie.")
+        raise HTTPException(400, detail="Nu îti poti lasa singur recenzie.")
 
     # --- 2. VERIFICARE DUPLICAT (COD NOU) ---
-    # Căutăm dacă există deja o recenzie de la acest client pentru acest agent
+    # Cautam daca exista deja o recenzie de la acest client pentru acest agent
     existing_review = db.query(models.AgentReview).filter(
         models.AgentReview.agent_id == review_data.agent_id,
         models.AgentReview.client_id == client_id
     ).first()
 
     if existing_review:
-        raise HTTPException(400, detail="Ai lăsat deja o recenzie acestui agent.")
+        raise HTTPException(400, detail="Ai lasat deja o recenzie acestui agent.")
     # ----------------------------------------
 
-    # 3. Salvăm Recenzia (Codul existent)
+    # 3. Salvam Recenzia (Codul existent)
     new_review = models.AgentReview(
         agent_id=review_data.agent_id,
         client_id=client_id,
@@ -972,23 +972,23 @@ def create_review(
     db.add(new_review)
     db.commit()
 
-    # 3. RECALCULĂM MEDIA AGENTULUI (CRITIC!)
-    # Calculăm media tuturor notelor acestui agent
+    # 3. RECALCULaM MEDIA AGENTULUI (CRITIC!)
+    # Calculam media tuturor notelor acestui agent
     avg_data = db.query(func.avg(models.AgentReview.rating), func.count(models.AgentReview.id))\
                  .filter(models.AgentReview.agent_id == review_data.agent_id).first()
     
     new_rating = round(avg_data[0], 1) if avg_data[0] else 0.0
     total_reviews = avg_data[1]
 
-    # Actualizăm profilul agentului
+    # Actualizam profilul agentului
     agent = db.query(models.AgentProfile).filter(models.AgentProfile.id == review_data.agent_id).first()
     if agent:
         agent.rating = new_rating
-        # Dacă ai coloana review_count în agent_profiles, o poți actualiza și pe aia
+        # Daca ai coloana review_count în agent_profiles, o poti actualiza și pe aia
         # agent.review_count = total_reviews 
         db.commit()
 
-    return {"message": "Recenzie salvată", "new_rating": new_rating}
+    return {"message": "Recenzie salvata", "new_rating": new_rating}
 
 
 
@@ -999,7 +999,7 @@ def get_agent_leads(
 ):
     if not authorization: raise HTTPException(401)
     
-    # 1. Obținem ID-ul Agentului curent
+    # 1. Obtinem ID-ul Agentului curent
     try:
         token = authorization.split(" ")[1]
         user_auth = supabase.auth.get_user(token)
@@ -1007,14 +1007,14 @@ def get_agent_leads(
     except:
         raise HTTPException(401, detail="Token invalid")
 
-    # 2. Căutăm conversațiile
+    # 2. Cautam conversatiile
     conversations = db.query(models.Conversation).filter(
         models.Conversation.seller_id == agent_id
     ).order_by(desc(models.Conversation.updated_at)).all()
 
     formatted_leads = []
 
-    # Funcție helper pentru a curăța ID-urile (siguranță maximă)
+    # Functie helper pentru a curata ID-urile (siguranta maxima)
     def normalize_id(uid):
         return str(uid).strip().lower().replace('"', '').replace("'", "")
 
@@ -1032,20 +1032,20 @@ def get_agent_leads(
         except Exception as e:
             print(f"Nu am gasit profil pt {conv.buyer_id}: {e}")
 
-        # Setăm datele
+        # Setam datele
         client_name = buyer_profile.get("full_name") or f"Client #{str(conv.buyer_id)[:5]}"
         client_avatar = buyer_profile.get("avatar_url")
 
-        # Luăm ultimul mesaj
+        # Luam ultimul mesaj
         last_msg = db.query(models.Message).filter(
             models.Message.conversation_id == conv.id
         ).order_by(desc(models.Message.created_at)).first()
 
         client_display = f"Client #{str(conv.buyer_id)[:5]}" 
 
-        # --- LOGICĂ STATUS CORECTATĂ ---
+        # --- LOGICa STATUS CORECTATa ---
         status = "CONTACTAT"
-        preview_text = "Conversație începută"
+        preview_text = "Conversatie începuta"
 
         if last_msg:
             clean_sender_id = normalize_id(last_msg.sender_id)
@@ -1058,15 +1058,15 @@ def get_agent_leads(
             
             preview_text = f"{sender_name}: {last_msg.content}"
 
-            # Determinăm Statusul
+            # Determinam Statusul
             if clean_sender_id == clean_agent_id:
-                # 1. Dacă ultimul mesaj e trimis de MINE (Agent)
-                status = "RĂSPUNS"
+                # 1. Daca ultimul mesaj e trimis de MINE (Agent)
+                status = "RaSPUNS"
             elif not last_msg.is_read:
-                # 2. Dacă e trimis de EL (Client) și e NECITIT
+                # 2. Daca e trimis de EL (Client) și e NECITIT
                 status = "MESAJ NOU"
             else:
-                # 3. Dacă e trimis de EL (Client) și e CITIT
+                # 3. Daca e trimis de EL (Client) și e CITIT
                 status = "CONTACTAT"
 
         formatted_leads.append({
@@ -1097,8 +1097,8 @@ def mark_conversation_as_read(
     except:
         raise HTTPException(401, detail="Token invalid")
 
-    # 1. Identificăm mesajele necitite care NU sunt ale mele
-    # (Adică mesajele primite de la celălalt)
+    # 1. Identificam mesajele necitite care NU sunt ale mele
+    # (Adica mesajele primite de la celalalt)
     messages_to_update = db.query(models.Message).filter(
         models.Message.conversation_id == conversation_id,
         models.Message.sender_id != current_user_id, # Mesaje primite
@@ -1107,13 +1107,13 @@ def mark_conversation_as_read(
 
     count = len(messages_to_update)
 
-    # 2. Le actualizăm manual (metodă sigură)
+    # 2. Le actualizam manual (metoda sigura)
     for msg in messages_to_update:
         msg.is_read = True
     
     db.commit()
     
-    return {"message": "Conversație actualizată", "updated_count": count}
+    return {"message": "Conversatie actualizata", "updated_count": count}
 
 @app.get("/")
 def read_root():
