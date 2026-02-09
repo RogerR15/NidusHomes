@@ -5,6 +5,7 @@ import tempfile
 import requests
 from PIL import Image  
 from io import BytesIO 
+import qrcode
 
 # COLOR PALETTE
 COLOR_PRIMARY = (0, 0, 0)           # Pure Black
@@ -24,6 +25,9 @@ class ApplePDF(FPDF):
         self.font_registered = False
         self._register_fonts()
         self.set_auto_page_break(auto=True, margin=20)
+
+        self.header_qr_path = None
+        self.header_qr_link = None
 
     def _register_fonts(self):
         font_paths = [
@@ -90,6 +94,22 @@ class ApplePDF(FPDF):
             self.cell(0, 6, subtitle, 0, 1, 'L')
         self.ln(8)
 
+    def set_header_qr(self, url):
+        """Generează QR-ul o singură dată și îl salvează pentru a fi folosit în header()"""
+        if not url: return
+        try:
+            qr = qrcode.QRCode(box_size=10, border=0) # Border 0 pt integrare clean
+            qr.add_data(url)
+            qr.make(fit=True)
+            img = qr.make_image(fill_color="black", back_color="white")
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+                img.save(tmp)
+                self.header_qr_path = tmp.name
+                self.header_qr_link = url
+        except Exception as e:
+            print(f"QR Error: {e}")
+
     # FUNCTIE PENTRU CROP IMAGINE 
     def _crop_and_save_image(self, img_data, target_w, target_h):
         """Taie imaginea (Center Crop) ca sa se potriveasca perfect in chenar fara deformare"""
@@ -122,6 +142,53 @@ class ApplePDF(FPDF):
         except Exception as e:
             print(f"Error cropping image: {e}")
             return None
+        
+
+    def header(self):
+        self.set_y(10)
+        
+        # 1. Logo & Brand (Stânga)
+        self.set_text_color(*COLOR_PRIMARY)
+        self.set_system_font('B', 18)
+        self.cell(40, 10, 'NidusHomes', 0, 0, 'L')
+        
+        # 2. QR Code (Dreapta Sus)
+        if self.header_qr_path:
+            # QR Image (15x15mm)
+            qr_size = 15
+            qr_x = 180  # Aproape de marginea din dreapta (210 - 20 - 10)
+            qr_y = 8    # Puțin mai sus
+            
+            # Desenăm QR-ul
+            self.image(self.header_qr_path, x=qr_x, y=qr_y, w=qr_size, h=qr_size, link=self.header_qr_link)
+            
+            # Data (În stânga QR-ului)
+            self.set_xy(135, 12) # Ajustăm poziția datei
+            self.set_text_color(*COLOR_TEXT_SECONDARY)
+            self.set_system_font('', 8)
+            self.cell(40, 5, datetime.date.today().strftime("%B %d, %Y"), 0, 0, 'R')
+            
+        else:
+            # Fallback dacă nu avem QR (Data în dreapta)
+            self.set_y(12)
+            self.set_text_color(*COLOR_TEXT_SECONDARY)
+            self.set_system_font('', 8)
+            self.cell(0, 5, datetime.date.today().strftime("%B %d, %Y"), 0, 0, 'R')
+
+        # 3. Subtitlu & Linie (Sub logo)
+        self.set_xy(10, 18) # Resetăm poziția sub logo
+        self.set_draw_color(*COLOR_DIVIDER)
+        self.set_line_width(0.3)
+        self.line(10, 20, 50, 20) # Linie scurtă sub logo
+        self.set_line_width(0.2)
+        
+        self.ln(3)
+        self.set_text_color(*COLOR_TEXT_SECONDARY)
+        self.set_system_font('', 8.5)
+        self.cell(0, 4, 'MARKET ANALYSIS REPORT', 0, 1, 'L')
+        
+        self.ln(10) # Spațiu după header
+
 
     def draw_featured_card(self, listing):
         start_y = self.get_y()
@@ -420,7 +487,16 @@ def generate_cma_report(target_listing, comparables):
     valid_comps = 0
     total_sqm_price = 0
     pdf = ApplePDF()
+
+    listing_id = getattr(target_listing, 'id', None)
+    base_url = "http://localhost:3000"
+    target_url = f"{base_url}/listing/{listing_id}" if listing_id else (getattr(target_listing, 'listing_url', "") or "")
+    
+    if target_url:
+        pdf.set_header_qr(target_url) 
+
     pdf.add_page()
+
     pdf.draw_section_header("Subject Property", "Primary analysis target")
     pdf.draw_featured_card(target_listing)
     pdf.draw_section_header("Market Comparables", f"{len(comparables)} similar properties")
@@ -459,7 +535,7 @@ def generate_cma_report(target_listing, comparables):
         pdf.draw_insight_card(estimated, avg_sqm, target_listing, valid_comps)
     else:
         pdf.cell(0, 10, "Insufficient data for market valuation", 0, 1, 'C')
-    
+
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     pdf.output(temp_file.name)
     return temp_file.name
