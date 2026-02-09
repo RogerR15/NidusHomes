@@ -21,4 +21,14 @@ export interface Listing {
     views?: number;
     favorites_count?: number;
     is_claimed?: boolean;
+
+    ai_tags?: {
+    top_tag: string;
+    room_type: string;
+    condition_detail: string;
+    scores?: {
+      room: number;
+      condition: number;
+    };
+  } | null;
 }

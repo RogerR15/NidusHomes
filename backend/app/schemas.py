@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Dict, Any
 from datetime import datetime
 from uuid import UUID
 
@@ -19,6 +19,7 @@ class ListingBase(BaseModel):
     year_built: Optional[int] = None
     address: Optional[str] = None
     contact_phone: Optional[str] = None
+    ai_tags: Optional[Dict[str, Any]] = None
 
 # Ce primim când cream un anunț (manual, optional)
 class ListingCreate(ListingBase):
@@ -28,6 +29,7 @@ class ListingCreate(ListingBase):
     images: List[str] = []
     price: float = Field(..., alias="price_eur")
     address: Optional[str] = None
+    ai_tags: Optional[Dict[str, Any]] = None
 
 
 class AgentProfilePublic(BaseModel):

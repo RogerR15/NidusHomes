@@ -9,7 +9,7 @@ import MortgageCalculator from '@/components/MortgageCalculator';
 import PriceHistoryChart from '@/components/PriceHistoryChart';
 import { Separator } from '@/components/ui/separator';
 import ImageGallery from '@/components/ImageGallery';
-import { Eye, Heart, Phone } from 'lucide-react';
+import { AlertTriangle, Bot, CheckCircle, CheckCircle2, Eye, Hammer, Heart, Info, Lock, Phone, PieChart, TrendingUp } from 'lucide-react';
 import ContactForm from '@/components/ContactForm';
 
 
@@ -113,6 +113,163 @@ export default function ListingPage() {
                             />
                             </div>
                         </div>
+                      {/* --- NIDUS PRO INTELLIGENCE --- */}
+{listing.ai_tags ? (
+  listing.ai_tags.investment ? (
+    // CAZ 1: AVEM DATELE PREMIUM (Randament, Preț Corect)
+    <div className="mb-10 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg relative group">
+      
+      {/* HEADER PRO */}
+      <div className="bg-slate-900 px-6 py-4 flex items-center justify-between text-white">
+        <div className="flex items-center gap-3">
+          <div className="bg-linear-to-r from-amber-400 to-amber-600 text-slate-900 text-[10px] font-black px-2 py-0.5 rounded shadow-[0_0_10px_rgba(251,191,36,0.4)]">
+            AI
+          </div>
+          <h3 className="font-bold tracking-wide text-lg flex items-center gap-2">
+            <Bot size={18} className="text-amber-400"/>
+            Raport Investițional
+          </h3>
+        </div>
+        <div className="text-slate-500 text-xs font-mono">
+          AI CONFIDENCE: {((listing.ai_tags.scores?.condition || 0.85) * 100).toFixed(0)}%
+        </div>
+      </div>
+
+      {/* CONTENT GRID */}
+      <div className="p-6 grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+
+        {/* 1. RANDAMENT (YIELD) */}
+        <div className="space-y-4 px-3">
+           <div className="flex items-center gap-2 text-indigo-600 font-semibold mb-1">
+              <PieChart size={20}/>
+              <h4 className="text-sm uppercase tracking-wider text-slate-500">Randament</h4>
+           </div>
+           
+           <div className="flex items-baseline gap-1">
+              <span className="text-4xl font-black text-slate-800 tracking-tight">
+                {listing.ai_tags.investment.yield_percent}%
+              </span>
+              <span className="text-sm font-medium text-slate-400">/ an</span>
+           </div>
+           
+           <div className="bg-indigo-50/50 rounded-lg p-3 text-sm border border-indigo-100">
+              <div className="flex justify-between mb-1">
+                 <span className="text-slate-500">Chirie Estimat:</span>
+                 <span className="font-bold text-indigo-900">{listing.ai_tags.investment.estimated_rent} € / lună</span>
+              </div>
+              <p className="text-[10px] text-indigo-400 mt-2 leading-tight">
+                 *Calculat automat pe baza mediei zonei {listing.neighborhood || 'Iași'} și a stării interioare.
+              </p>
+           </div>
+        </div>
+
+        {/* 2. COSTURI REALE (RENOVARE) */}
+        <div className="space-y-4 px-2 pt-6 md:pt-0 md:pl-6">
+           <div className="flex items-center gap-2 text-orange-600 font-semibold mb-1">
+              <Hammer size={20}/>
+              <h4 className="text-sm uppercase tracking-wider text-slate-500">Investiție Necesară</h4>
+           </div>
+           
+           <div className="flex flex-col items-baseline gap-1">
+              <span className="text-3xl font-bold text-slate-800">
+                {listing.ai_tags.investment.renovation_cost > 0 
+                  ? `~${(listing.ai_tags.investment.renovation_cost / 1000).toFixed(1)}k €`
+                  : "0 €"}
+              </span>
+                    
+                <span className="text-xs  text-slate-400 font-medium bg-slate-100 px-2 py-1 rounded-full ml-2 text-center">
+                    Estimare Minima De Renovare
+                </span>
+              
+           </div>
+           
+           
+           <div className="text-sm  text-slate-600 leading-relaxed">
+              <p>Stare detectată: <strong>
+                {listing.ai_tags.top_tag === 'fixer-upper' && "Necesită Renovare Completă"}
+                {listing.ai_tags.top_tag === 'renovated' && "Renovat Recent"}
+                {listing.ai_tags.top_tag === 'luxury' && "Lux / Premium"}
+                {listing.ai_tags.top_tag === 'construction' && "La Gri"}
+                {listing.ai_tags.top_tag === 'standard' && "Standard / Vechi"}
+                {listing.ai_tags.top_tag === 'old_but_clean' && "Vechi dar Locuibil"}
+              </strong></p>
+           </div>
+
+           <div className="mt-2 text-xs font-mono text-slate-500 bg-slate-50 p-2 rounded border border-slate-100">
+              Total (Achiziție + Renovare): <span className="font-bold text-slate-900">{(listing.ai_tags.investment.total_investment / 1000).toFixed(1)}k €</span>
+           </div>
+        </div>
+
+        {/* 3. ANALIZA PIAȚĂ (Preț Corect) */}
+        <div className="space-y-4 px-2 pt-6 md:pt-0 md:pl-6">
+           <div className="flex items-center gap-2 text-emerald-600 font-semibold mb-1">
+              <TrendingUp size={20}/>
+              <h4 className="text-sm uppercase tracking-wider text-slate-500">Poziție în Piață</h4>
+           </div>
+           
+           <div>
+              {listing.ai_tags.investment.market_comparison?.status === 'deal' && (
+                 <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full text-sm font-bold shadow-sm border border-emerald-200">
+                    <CheckCircle2 size={16}/> SUPER DEAL
+                 </span>
+              )}
+              {listing.ai_tags.investment.market_comparison?.status === 'fair' && (
+                 <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-sm font-bold shadow-sm border border-blue-200">
+                    ⚖️ Preț Corect
+                 </span>
+              )}
+              {listing.ai_tags.investment.market_comparison?.status === 'expensive' && (
+                 <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-3 py-1.5 rounded-full text-sm font-bold shadow-sm border border-red-200">
+                    <AlertTriangle size={16}/> Peste Piață
+                 </span>
+              )}
+           </div>
+
+           <div className="text-sm space-y-2 mt-3 bg-slate-50 p-3 rounded-lg border border-slate-100">
+              <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+                 <span className="text-slate-500">Preț Listat:</span>
+                 <span className="font-bold text-slate-900">{listing.ai_tags.investment.market_comparison?.listing_price_sqm} €/mp</span>
+              </div>
+              <div className="flex justify-between items-center pt-1">
+                 <span className="text-slate-500 flex items-center gap-1">
+                    AI Fair Price: 
+                    <span className="bg-slate-200 text-[10px] px-1 rounded text-slate-500 text-center mr-5">ML Model</span>
+                 </span>
+                 <span className="pl- font-bold text-slate-600">
+                    {listing.ai_tags.investment.market_comparison?.avg_price_sqm} €/mp
+                 </span>
+              </div>
+           </div>
+        </div>
+      </div>
+    </div>
+  ) : (
+    // CAZ 2: ANUNȚ PROCESAT DOAR VIZUAL (FĂRĂ DATE FINANCIARE) - FALLBACK ELEGANT
+    <div className="mb-10 overflow-hidden rounded-xl border border-slate-200 bg-slate-900 text-white shadow-lg relative p-8 text-center">
+         <div className="relative z-10 flex flex-col items-center justify-center h-full space-y-4">
+            <div className="bg-white/10 p-3 rounded-full backdrop-blur-sm">
+                <Lock className="w-8 h-8 text-amber-400" />
+            </div>
+            <div>
+                <h3 className="text-2xl font-bold mb-1 text-white">Nidus PRO Report</h3>
+                <p className="text-slate-400 text-sm max-w-md mx-auto">
+                    Calculăm randamentul investițional, costurile ascunse de renovare și prețul corect de piață.
+                </p>
+            </div>
+            
+            {/* Starea de "Loading" simulata */}
+            <div className="flex items-center gap-2 text-amber-400 text-sm font-mono animate-pulse mt-4">
+                <Bot size={16}/>
+                <span>AI Processing Financial Data...</span>
+            </div>
+         </div>
+         
+         {/* Background Effects */}
+         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-slate-800 via-slate-900 to-black opacity-50"></div>
+         <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl"></div>
+    </div>
+  )
+) : null}
                     </div>
 
                     {/* DREAPTA: Informatii Cheie & Contact */}
@@ -136,6 +293,7 @@ export default function ListingPage() {
                                     {listing.transaction_type === 'RENT' ? 'DE ÎNCHIRIAT' : 'DE VÂNZARE'}
                                 </span>
                                 <h1 className="text-2xl font-bold text-gray-900 leading-tight mb-2">{listing.title}</h1>
+
                                 <p className="text-slate-500 flex items-center gap-1 text-sm">
                                     📍 {listing.neighborhood}, Iași
                                 </p>
@@ -147,6 +305,7 @@ export default function ListingPage() {
                                 </span>
                                 {listing.transaction_type === 'RENT' && <span className="text-gray-400 font-medium mb-1">/ luna</span>}
                             </div>
+                    
 
                             {/* Grid Specificatii */}
                             <div className="grid grid-cols-2 gap-4 mb-6">

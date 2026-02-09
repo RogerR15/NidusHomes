@@ -5,6 +5,7 @@ from geoalchemy2 import Geometry
 from geoalchemy2.shape import to_shape 
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from .database import Base
+from sqlalchemy.dialects.postgresql import JSONB
 
 class Listing(Base):
     __tablename__ = "listings"
@@ -57,6 +58,9 @@ class Listing(Base):
 
     fingerprint = Column(String, index=True) 
     image_hash = Column(String, index=True)
+
+    # AI Tags (rezultatul analizei imaginii)
+    ai_tags = Column(JSONB, nullable=True)
     
     # HELPERE PENTRU PYDANTIC 
     @property

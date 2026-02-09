@@ -86,11 +86,11 @@ IASI_ZONES = {
 # GENERATOR AMPRENTA TEXT (Fingerprint)
 def generate_fingerprint(details):
     """
-    Creează un ID unic bazat pe caracteristicile fizice.
+    Creeaza un ID unic bazat pe caracteristicile fizice.
     Format: zona_camere_etaj_mp(rotunjit)
     Ex: pacurari_2cam_etaj3_54mp
     """
-    # 1. Zona (normalizată: litere mici, fără spații inutile)
+    # 1. Zona (normalizata: litere mici, fara spatii inutile)
     zone = (details.get('neighborhood') or 'iasi').lower().replace("iasi", "").replace(",", "").strip().split(' ')[0]
     
     # 2. Camere
@@ -100,9 +100,9 @@ def generate_fingerprint(details):
     floor = details.get('floor')
     floor_str = str(floor) if floor is not None else "x"
     
-    # 4. Suprafață (Rotunjită la multiplu de 2 pentru a prinde variațiile mici: 55mp ~= 54mp)
+    # 4. Suprafata (Rotunjita la multiplu de 2 pentru a prinde variatiile mici: 55mp ~= 54mp)
     sqm = details.get('sqm') or 0
-    # Dacă e 55 -> devine 54. Dacă e 56 -> rămâne 56. Marja de eroare +/- 1mp.
+    # Daca e 55 -> devine 54. Daca e 56 -> ramâne 56. Marja de eroare +/- 1mp.
     sqm_bucket = int(round(sqm / 2.0) * 2) 
     
     return f"{zone}_{rooms}cam_et{floor_str}_{sqm_bucket}mp"
@@ -126,31 +126,51 @@ def extract_details_from_text(text):
         return {}
     
     text = text.lower()
+    clean_text = text.replace("ş", "s").replace("ţ", "t").replace("a", "a").replace("â", "a")
     details = {}
 
     # 1. Camere (ex: "2 camere", "3 cam")
-    rooms_match = re.search(r'(\d+)\s*(cam|camera|camere)', text)
+    rooms_match = re.search(r'(\d+)\s*(cam|camera|camere|odai|dormitoare)', clean_text)
     if rooms_match:
         try:
             details['rooms'] = int(rooms_match.group(1))
         except: pass
 
     # 2. Etaj (ex: "etaj 3", "etajul 1", "et. 2")
-    floor_match = re.search(r'(?:etaj|et\.|etajul)\s*(\d+)', text)
+    floor_match = re.search(r'(?:etaj|et\.|etajul)\s*(\d+)', clean_text)
     if floor_match:
         try:
             details['floor'] = int(floor_match.group(1))
         except: pass
-    elif "parter" in text:
+    elif "parter" in clean_text:
         details['floor'] = 0
+    elif "demisol" in clean_text:
+        details['floor'] = -1
+
+    if 'floor' not in details:
+        slash_match = re.search(r'\b(\d+)/(\d+)\b', clean_text)
+        if slash_match:
+             # Verificam contextul sa nu fie data (12/05)
+             val = int(slash_match.group(1))
+             if val < 20: # Presupunem ca nu sunt etaje peste 20 in Iasi uzual in anunturi fara text explicit
+                 details['floor'] = val
 
     # 3. An Constructie (ex: "1980", "2022")
     # Cautam ani plauzibili Intre 1900 si 2030
-    year_match = re.search(r'\b(19\d{2}|20[0-2]\d)\b', text)
+    year_match = re.search(r'(?:an|bloc|constructie|finalizare|imobil)\s*[-: ]?\s*(19\d{2}|20[0-2]\d)', clean_text)
     if year_match:
-        try:
-            details['year_built'] = int(year_match.group(1))
+        try: details['year_built'] = int(year_match.group(1))
         except: pass
+    else:
+        # Fallback: cautam doar anul daca e izolat, dar riscant (poate fi pret)
+        # Il luam doar daca e intre 1950 si 2029 si NU e urmat de euro/lei
+        bare_year = re.search(r'\b(19[5-9]\d|20[0-2]\d)\b(?!\s*(?:eur|lei|ron|mp|m2))', clean_text)
+        if bare_year:
+             try: details['year_built'] = int(bare_year.group(1))
+             except: pass
+
+    if "bloc nou" in clean_text and 'year_built' not in details:
+        details['year_built'] = 2024
         
     # 4. Compartimentare
     if "decomandat" in text and "semidecomandat" not in text:
@@ -166,10 +186,10 @@ def extract_surface(soup, description_text):
     """Corectat pentru a evita eroarea 'NoneType object has no attribute find_all'"""
     surface = 0
 
-    # METODA 1: HTML (Doar dacă soup există)
+    # METODA 1: HTML (Doar daca soup exista)
     if soup:
         try:
-            keywords = ['suprafata', 'suprafață', 'utila', 'utilă']
+            keywords = ['suprafata', 'suprafata', 'utila', 'utila']
             tags = soup.find_all(lambda tag: tag.name in ['li', 'p', 'div', 'span'] and any(k in tag.get_text().lower() for k in keywords))
             for tag in tags:
                 text = tag.get_text().lower()
@@ -356,18 +376,18 @@ def scrape_storia(target):
             ).first()
 
             if existing_match:
-                # SCENARIU: Am găsit același apartament listat deja
-                # Dacă noul preț e mai bun, actualizăm anunțul vechi
+                # SCENARIU: Am gasit același apartament listat deja
+                # Daca noul pret e mai bun, actualizam anuntul vechi
                 if price > 0 and price < existing_match.price_eur:
                     print(f"Match gasit (ID {existing_match.id}). Actualizez pret: {existing_match.price_eur} -> {price}")
                     existing_match.price_eur = price
-                    existing_match.listing_url = listing_url # Actualizăm linkul
+                    existing_match.listing_url = listing_url # Actualizam linkul
                     existing_match.updated_at = datetime.now()
                     db.commit()
                 else:
-                    # print(f"Match găsit (ID {existing_match.id}). Skip.")
+                    # print(f"Match gasit (ID {existing_match.id}). Skip.")
                     pass
-                continue # NU creăm anunț nou
+                continue # NU cream anunt nou
 
             
             # SALVARE INDIVIDUALA (COMMIT PER ITEM) 
@@ -622,7 +642,7 @@ def scrape_olx(target):
 
                     if existing_match:
                         if price > 0 and price < existing_match.price_eur:
-                            print(f"Match găsit (ID {existing_match.id}). Update: {existing_match.price_eur} -> {price}")
+                            print(f"Match gasit (ID {existing_match.id}). Update: {existing_match.price_eur} -> {price}")
                             existing_match.price_eur = price
                             existing_match.listing_url = listing_url
                             existing_match.updated_at = datetime.now()

@@ -16,6 +16,8 @@ from app.utils.pdf_generator import generate_cma_report
 
 import tldextract 
 from urllib.parse import urlparse
+import joblib
+import pandas as pd
 
 # Creare tabele
 models.Base.metadata.create_all(bind=engine)
@@ -42,6 +44,55 @@ app.add_middleware(
     allow_methods=["*"], 
     allow_headers=["*"], 
 )
+
+# 1. Încarcare Model AI la startup
+price_model = None
+model_path = os.path.join("ai", "price_model.joblib")
+
+@app.on_event("startup")
+def load_ai_model():
+    global price_model
+    if os.path.exists(model_path):
+        try:
+            price_model = joblib.load(model_path)
+            print("AI Price Model loaded successfully!")
+        except Exception as e:
+            print(f"Could not load AI model: {e}")
+    else:
+        print("No AI model found. Run 'python ai/train_model.py' to create one.")
+
+# 2. Endpoint Estimare Pret
+class ValuationRequest(BaseModel):
+    sqm: float
+    rooms: int
+    floor: int = 1
+    year_built: int = 1990
+    neighborhood: str
+
+@app.post("/api/ai/estimate-price")
+def estimate_property_price(data: ValuationRequest):
+    if not price_model:
+        return {"error": "AI Model not loaded. Train it first."}
+    
+    # Pregatim datele exact cum au fost la antrenare
+    input_df = pd.DataFrame([{
+        'sqm': data.sqm,
+        'rooms': data.rooms,
+        'floor': data.floor,
+        'year_built': data.year_built,
+        'neighborhood': data.neighborhood
+    }])
+    
+    try:
+        prediction = price_model.predict(input_df)[0]
+        return {
+            "estimated_price": int(prediction),
+            "currency": "EUR",
+            "status": "success"
+        }
+    except Exception as e:
+        return {"error": f"Prediction failed: {str(e)}"}
+
 
 
 # 1. GET LISTINGS (Cautare Avansata)
